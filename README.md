@@ -11,11 +11,15 @@ danish_speech
 |---- evaluate.py: evaluation methods
 |---- run.py: running benchmark
 |---- submit.py: add results to leaderboard
-
-leaderboards: static html for Huggingface Hub leaderboards
+|---- leaderboards: static html for Huggingface Hub leaderboards
 
 # Setup
 todo
+
+```bash
+pip install .
+python -m danish_speech.run
+```
 
 # How-to run a benchmark submission
 todo
