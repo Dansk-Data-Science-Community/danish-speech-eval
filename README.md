@@ -1,14 +1,30 @@
 # danish-speech-eval
 A bench for evaluating speech to text and text to speech model on different Danish datasets and domains.
 
+# Evaluation metrics
+WER
+
+Normalized WER
+
 # Structure
-todo
+danish_speech
+|---- evaluate.py: evaluation methods
+|---- run.py: running benchmark
+|---- submit.py: add results to leaderboard
+
+leaderboards: static html for Huggingface Hub leaderboards
 
 # Setup
 todo
 
 # How-to run a benchmark submission
 todo
+
+# Roadmap
+
+Text-to-speech benchmark
+
+Automated submission of evaluation results
 
 # Acknowledgements
 
