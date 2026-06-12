@@ -1,3 +1,14 @@
+---
+title: Danish Speech Eval
+emoji: 🏆
+colorFrom: green
+colorTo: red
+sdk: static
+pinned: false
+license: mit
+short_description: A leaderboard for speech models on Danish (TtS and StT)
+---
+
 # Deploying the leaderboard to a HuggingFace Space
 
 The leaderboard is a self-contained static site: `index.html` fetches
@@ -6,7 +17,7 @@ The leaderboard is a self-contained static site: `index.html` fetches
 ## 1. Create a HuggingFace Space
 
 1. Go to <https://huggingface.co/new-space>.
-2. Fill in a name (e.g. `danish-speech-leaderboard`).
+2. Fill in a name (e.g. `danish-speech-eval`).
 3. Select **Static** as the Space SDK.
 4. Choose a licence and set visibility (public recommended).
 5. Click **Create Space**.

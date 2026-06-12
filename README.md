@@ -51,10 +51,10 @@ works out of the box.
 danish-speech-eval --model openai/whisper-large-v3
 
 # Wav2Vec2 without language model
-danish-speech-eval --model chcaa/xls-r-300m-danish --no-lm
+danish-speech-eval --model Alvenir/wav2vec2-base-da --no-lm
 
 # Cohere / models requiring remote code
-danish-speech-eval --model CohereForAI/c4ai-aya-expanse-8b --trust-remote-code
+danish-speech-eval --model syvai/hviske-v5.3 --trust-remote-code
 ```
 
 ### OpenAI-compatible API backend
@@ -114,7 +114,7 @@ danish-speech-eval --model openai/whisper-large-v3
 ```bash
 danish-speech-eval \
   --model openai/whisper-large-v3 \
-  --dataset mozilla-foundation/common_voice_17_0 \
+  --dataset CoRal-project/coral-v3 \
   --subset da \
   --split test \
   --text-column sentence
