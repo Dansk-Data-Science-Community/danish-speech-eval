@@ -25,7 +25,6 @@ from datasets import (
     interleave_datasets,
     load_dataset,
 )
-from omegaconf import DictConfig
 from tqdm.auto import tqdm
 
 from .types import Data
@@ -33,11 +32,120 @@ from .utils import (
     NUMERAL_REGEX,
     convert_iterable_dataset_to_dataset,
     convert_numeral_to_words,
-    interpret_dataset_name,
     no_datasets_progress_bars,
 )
 
 logger = logging.getLogger(__package__)
+
+
+def load_dataset_for_evaluation(
+    dataset_id: str,
+    eval_split_name: str,
+    audio_column: str,
+    text_column: str,
+    min_seconds_per_example: float,
+    max_seconds_per_example: int,
+    sampling_rate: int,
+    subset: str | None = None,
+    revision: str | None = None,
+    lower_case: bool = True,
+    characters_to_keep: list[str] | None = None,
+    convert_numerals: bool = True,
+    cache_dir: str | None = None,
+) -> Dataset:
+    """Load and preprocess an evaluation dataset.
+
+    Args:
+        dataset_id:
+            HuggingFace dataset ID (e.g. ``"alexandrainst/coral"``).
+        eval_split_name:
+            Split to load (e.g. ``"test"``).
+        audio_column:
+            Name of the audio column.
+        text_column:
+            Name of the transcription column.
+        min_seconds_per_example:
+            Minimum audio duration in seconds; shorter samples are removed.
+        max_seconds_per_example:
+            Maximum audio duration in seconds; longer samples are removed.
+        sampling_rate:
+            Target audio sampling rate in Hz.
+        subset:
+            Dataset subset/config name, or ``None`` for the default. Defaults to None.
+        revision:
+            Dataset revision/commit, or ``None`` for the latest. Defaults to None.
+        lower_case:
+            Whether to lower-case transcriptions. Defaults to True.
+        characters_to_keep:
+            Characters to retain in transcriptions. ``None`` keeps all characters.
+            Defaults to None.
+        convert_numerals:
+            Whether to convert numeral digits to Danish words. Defaults to True.
+        cache_dir:
+            Directory for caching datasets. Defaults to None.
+
+    Returns:
+        A preprocessed ``Dataset``.
+    """
+    is_main_process = os.getenv("RANK", "0") == "0"
+
+    if is_main_process:
+        logger.info(
+            "Loading the %r split of the %r dataset...", eval_split_name, dataset_id
+        )
+
+    cache_path: Path | None = None
+    if cache_dir:
+        cache_path = (
+            Path(cache_dir) / "test-sets" / dataset_id.replace("/", "--")
+        )
+        if cache_path.exists():
+            return Dataset.load_from_disk(dataset_path=cache_path)
+
+    dataset = load_dataset(
+        path=dataset_id,
+        name=subset,
+        split=eval_split_name,
+        revision=revision,
+        token=os.getenv("HUGGINGFACE_HUB_TOKEN", True),
+        cache_dir=cache_dir,
+        streaming=True,
+        trust_remote_code=True,
+    )
+    assert isinstance(dataset, IterableDataset)
+    dataset = convert_iterable_dataset_to_dataset(
+        iterable_dataset=dataset,
+        split_name=eval_split_name,
+        cache_dir=Path(cache_dir) if cache_dir else None,
+    )
+    assert isinstance(dataset, Dataset)
+    dataset = filter_dataset(
+        dataset=dataset,
+        audio_column=audio_column,
+        text_column=text_column,
+        min_seconds_per_example=min_seconds_per_example,
+        max_seconds_per_example=max_seconds_per_example,
+        is_main_process=is_main_process,
+    )
+    dataset = dataset.cast_column(
+        column=audio_column, feature=Audio(sampling_rate=sampling_rate)
+    )
+    dataset = process_dataset(
+        dataset=dataset,
+        lower_case=lower_case,
+        characters_to_keep=characters_to_keep,
+        text_column=text_column,
+        audio_column=audio_column,
+        normalise_audio=True,
+        augment_audio=False,
+        remove_input_dataset_columns=False,
+        convert_numerals=convert_numerals,
+    )
+
+    if cache_path is not None:
+        dataset.save_to_disk(dataset_path=cache_path)
+
+    return dataset
 
 
 # Dictionary that contains characters to be converted (from the key to the value). Some
@@ -88,83 +196,6 @@ DEFAULT_CONVERSION_DICT = {
 FILLER_WORDS_PATTERN = re.compile(
     pattern=r"\b(eh+m*|øh+m*|h+m+|m+h+)\b", flags=re.IGNORECASE
 )
-
-def load_dataset_for_evaluation(config: DictConfig) -> Dataset:
-    """Load the evaluation dataset.
-
-    Args:
-        config:
-            The Hydra configuration object.
-
-    Returns:
-        A DatasetDict containing the validation and test datasets.
-    """
-    # Note if we're on the main process, if we are running in a distributed setting
-    is_main_process = os.getenv("RANK", "0") == "0"
-
-    dataset_id, dataset_subset, dataset_revision = interpret_dataset_name(
-        dataset_name=config.dataset
-    )
-
-    if is_main_process:
-        logger.info(
-            f"Loading the {config.eval_split_name!r} split of the {dataset_id} "
-            "dataset..."
-        )
-
-    eval_dataset_path = None
-    if config.cache_dir:
-        eval_dataset_path = (
-            Path(config.cache_dir) / "test-sets" / dataset_id.replace("/", "--")
-        )
-        if eval_dataset_path.exists():
-            return Dataset.load_from_disk(dataset_path=eval_dataset_path)
-
-    dataset = load_dataset(
-        path=dataset_id,
-        name=dataset_subset,
-        split=config.eval_split_name,
-        revision=dataset_revision,
-        token=os.getenv("HUGGINGFACE_HUB_TOKEN", True),
-        cache_dir=config.cache_dir,
-        streaming=True,
-        trust_remote_code=True,
-    )
-    assert isinstance(dataset, IterableDataset)
-    dataset = convert_iterable_dataset_to_dataset(
-        iterable_dataset=dataset,
-        split_name=config.eval_split_name,
-        cache_dir=config.cache_dir,
-    )
-    assert isinstance(dataset, Dataset)
-    dataset = filter_dataset(
-        dataset=dataset,
-        audio_column=config.audio_column,
-        text_column=config.text_column,
-        min_seconds_per_example=config.min_seconds_per_example,
-        max_seconds_per_example=config.max_seconds_per_example,
-        is_main_process=is_main_process,
-    )
-    dataset = dataset.cast_column(
-        column=config.audio_column, feature=Audio(sampling_rate=config.sampling_rate)
-    )
-    dataset = process_dataset(
-        dataset=dataset,
-        lower_case=config.lower_case,
-        characters_to_keep=config.characters_to_keep,
-        text_column=config.text_column,
-        audio_column=config.audio_column,
-        normalise_audio=True,
-        augment_audio=False,
-        remove_input_dataset_columns=False,
-        convert_numerals=True,
-    )
-
-    if eval_dataset_path is not None:
-        dataset.save_to_disk(dataset_path=eval_dataset_path)
-
-    return dataset
-
 
 def filter_dataset(
     dataset: Data,

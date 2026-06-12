@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Danish Speech Evaluation Leaderboard</title>
+  <style>
+    :root {
+      --red: #c60c30;
+      --bg: #f5f6fa;
+      --card: #ffffff;
+      --text: #2c2c2c;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --header: #2c2c2c;
+      --good: #16a34a;
+      --ok: #ca8a04;
+      --poor: #dc2626;
+      --shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Header ── */
+    header { background: var(--header); padding: 24px 32px; display: flex; align-items: center; gap: 14px; }
+    .flag { font-size: 2rem; line-height: 1; }
+    header h1 { color: #fff; font-size: 1.5rem; font-weight: 700; }
+    header p { color: rgba(255,255,255,.65); font-size: .85rem; margin-top: 3px; }
+    .header-logo { margin-left: auto; height: 48px; width: auto; opacity: .92; }
+
+    /* ── Layout ── */
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 16px; }
+
+    /* ── Stat cards ── */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 28px; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; text-align: center; box-shadow: var(--shadow); }
+    .stat .val { font-size: 1.9rem; font-weight: 700; color: var(--red); }
+    .stat .lbl { font-size: .72rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .06em; }
+
+    /* ── Controls ── */
+    .controls { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .controls input, .controls select {
+      padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: .875rem; background: var(--card); color: var(--text); outline: none;
+    }
+    .controls input { flex: 1; min-width: 200px; }
+    .controls input:focus, .controls select:focus { border-color: var(--red); }
+
+    /* ── Table ── */
+    .table-wrap { background: var(--card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      background: var(--header); color: #fff; padding: 13px 16px;
+      text-align: left; font-size: .75rem; text-transform: uppercase;
+      letter-spacing: .07em; cursor: pointer; user-select: none; white-space: nowrap;
+    }
+    thead th:hover { background: #404040; }
+    thead th .si { margin-left: 5px; opacity: .45; font-style: normal; }
+    thead th.asc  .si::after { content: " ↑"; opacity: 1; }
+    thead th.desc .si::after { content: " ↓"; opacity: 1; }
+    thead th:not(.asc):not(.desc) .si::after { content: " ↕"; }
+
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f1f5f9; }
+    td { padding: 13px 16px; font-size: .875rem; vertical-align: middle; }
+
+    /* rank */
+    td.rank { font-weight: 700; color: var(--muted); text-align: center; width: 52px; }
+    tbody tr:nth-child(1) td.rank { color: #ca8a04; font-size: 1.1rem; }
+    tbody tr:nth-child(2) td.rank { color: #9ca3af; }
+    tbody tr:nth-child(3) td.rank { color: #92400e; }
+
+    /* model name */
+    td.model a { color: var(--red); text-decoration: none; font-weight: 500; }
+    td.model a:hover { text-decoration: underline; }
+
+    /* badge */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .72rem; font-weight: 600; background: #e0e7ff; color: #3730a3; }
+
+    /* WER cell */
+    .wer-wrap { display: flex; align-items: center; gap: 8px; }
+    .wer-num { font-weight: 700; font-size: .95rem; min-width: 52px; }
+    .good { color: var(--good); }
+    .ok   { color: var(--ok); }
+    .poor { color: var(--poor); }
+    .bar  { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 3px; }
+
+    /* empty / loading */
+    .empty { text-align: center; padding: 60px; color: var(--muted); }
+    .empty h3 { font-size: 1rem; margin-bottom: 6px; }
+
+    /* ── Footer ── */
+    footer { text-align: center; padding: 28px; color: var(--muted); font-size: .78rem; }
+    footer a { color: var(--red); }
+
+    @media (max-width: 640px) {
+      td, th { padding: 10px 10px; }
+      .controls { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="flag">🇩🇰</span>
+  <div>
+    <h1>Danish Speech Evaluation Leaderboard</h1>
+    <p>Automatic Speech Recognition (ASR) · Word Error Rate (WER) · lower is better</p>
+  </div>
+  <img src="assets/ddsc-logo.png" alt="DDSC logo" class="header-logo" />
+</header>
+
+<main class="container">
+
+  <div class="stats">
+    <div class="stat"><div class="val" id="s-models">—</div><div class="lbl">Models</div></div>
+    <div class="stat"><div class="val" id="s-datasets">—</div><div class="lbl">Datasets</div></div>
+    <div class="stat"><div class="val" id="s-best">—</div><div class="lbl">Best WER</div></div>
+    <div class="stat"><div class="val" id="s-total">—</div><div class="lbl">Evaluations</div></div>
+  </div>
+
+  <div class="controls">
+    <input id="q" type="search" placeholder="🔍  Search models…" />
+    <select id="ds-filter"><option value="">All datasets</option></select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th data-col="model_name">Model<i class="si"></i></th>
+          <th data-col="task">Task<i class="si"></i></th>
+          <th data-col="score" class="asc">WER %<i class="si"></i></th>
+          <th data-col="metric">Metric<i class="si"></i></th>
+          <th data-col="dataset">Dataset<i class="si"></i></th>
+          <th data-col="timestamp">Date<i class="si"></i></th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="7"><div class="empty"><h3>Loading…</h3></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<footer>
+  Maintained by
+  <a href="https://github.com/Dansk-Data-Science-Community" target="_blank">Dansk Data Science Community</a> ·
+  <a href="https://github.com/Dansk-Data-Science-Community/danish-speech-eval" target="_blank">GitHub</a> ·
+  Want your model on this board?
+  <a href="https://github.com/Dansk-Data-Science-Community/danish-speech-eval/issues/new?template=model-eval-request.yml" target="_blank">Open an issue ↗</a>
+</footer>
+
+<script>
+  /* ── state ── */
+  let all = [];
+  let sortCol = "score";
+  let sortDir = "asc"; // asc = lowest WER first
+
+  /* ── helpers ── */
+  function werClass(v) { return v < 15 ? "good" : v < 30 ? "ok" : "poor"; }
+  function werColor(v) { return v < 15 ? "#16a34a" : v < 30 ? "#ca8a04" : "#dc2626"; }
+  function rank(i) {
+    if (i === 0) return "🥇";
+    if (i === 1) return "🥈";
+    if (i === 2) return "🥉";
+    return i + 1;
+  }
+
+  /* ── render ── */
+  function render(rows) {
+    const tbody = document.getElementById("tbody");
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><h3>No results found</h3><p>Try a different filter.</p></div></td></tr>`;
+      return;
+    }
+
+    const sorted = [...rows].sort((a, b) => {
+      const av = a[sortCol] ?? "";
+      const bv = b[sortCol] ?? "";
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    tbody.innerHTML = sorted.map((row, i) => {
+      const url = `https://huggingface.co/${row.model_name}`;
+      const barW = Math.min(row.score, 100).toFixed(1);
+      const cls  = werClass(row.score);
+      return `
+        <tr>
+          <td class="rank">${rank(i)}</td>
+          <td class="model"><a href="${url}" target="_blank">${row.model_name}</a></td>
+          <td><span class="badge">${row.task}</span></td>
+          <td>
+            <div class="wer-wrap">
+              <span class="wer-num ${cls}">${row.score.toFixed(1)}%</span>
+              <div class="bar"><div class="bar-fill" style="width:${barW}%;background:${werColor(row.score)}"></div></div>
+            </div>
+          </td>
+          <td>${row.metric}</td>
+          <td>${row.dataset}</td>
+          <td style="color:#9ca3af;font-size:.8rem">${row.timestamp ?? ""}</td>
+        </tr>`;
+    }).join("");
+  }
+
+  /* ── stats ── */
+  function updateStats(data) {
+    document.getElementById("s-models").textContent   = new Set(data.map(r => r.model_name)).size || "—";
+    document.getElementById("s-datasets").textContent = new Set(data.map(r => r.dataset)).size   || "—";
+    document.getElementById("s-best").textContent     = data.length ? Math.min(...data.map(r => r.score)).toFixed(1) + "%" : "—";
+    document.getElementById("s-total").textContent    = data.length || "—";
+  }
+
+  /* ── filter ── */
+  function applyFilters() {
+    const q  = document.getElementById("q").value.toLowerCase();
+    const ds = document.getElementById("ds-filter").value;
+    render(all.filter(r =>
+      r.model_name.toLowerCase().includes(q) &&
+      (!ds || r.dataset === ds)
+    ));
+  }
+
+  /* ── sort headers ── */
+  document.querySelectorAll("thead th[data-col]").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.col;
+      if (sortCol === col) {
+        sortDir = sortDir === "asc" ? "desc" : "asc";
+      } else {
+        sortCol = col;
+        sortDir = col === "score" ? "asc" : "asc";
+      }
+      document.querySelectorAll("thead th[data-col]").forEach(h => h.classList.remove("asc", "desc"));
+      th.classList.add(sortDir);
+      applyFilters();
+    });
+  });
+
+  document.getElementById("q").addEventListener("input", applyFilters);
+  document.getElementById("ds-filter").addEventListener("change", applyFilters);
+
+  /* ── load data ── */
+  fetch("leaderboard.json")
+    .then(r => r.json())
+    .then(data => {
+      all = data;
+      updateStats(data);
+      const sel = document.getElementById("ds-filter");
+      [...new Set(data.map(r => r.dataset))].sort().forEach(ds => {
+        const o = document.createElement("option");
+        o.value = o.textContent = ds;
+        sel.appendChild(o);
+      });
+      applyFilters();
+    })
+    .catch(() => {
+      document.getElementById("tbody").innerHTML =
+        `<tr><td colspan="7"><div class="empty"><h3>No evaluations yet</h3><p>Run <code>python -m danish_speech.run --model &lt;model-id&gt;</code> to populate the leaderboard.</p></div></td></tr>`;
+      updateStats([]);
+    });
+</script>
+</body>
+</html>
