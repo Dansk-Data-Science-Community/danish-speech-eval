@@ -2,6 +2,8 @@
 
 import argparse
 import logging
+import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .data import load_dataset_for_evaluation
@@ -40,6 +42,7 @@ def run_evaluation(
     backend: str = "huggingface",
     api_options: dict[str, str | None] | None = None,
     cache_dir: str | None = None,
+    debug_csv_path: Path | None = None,
 ) -> dict[str, float | int]:
     """Load a dataset, run ASR evaluation, and return WER and CER as percentages.
 
@@ -74,6 +77,8 @@ def run_evaluation(
             ``"version"`` for backends that require them.
         cache_dir:
             Directory for caching downloaded datasets. Defaults to None.
+        debug_csv_path:
+            Optional CSV path for per-sample debug input/output rows.
 
     Returns:
         Dict with ``"wer"`` and ``"cer"`` scores as percentages plus
@@ -111,6 +116,7 @@ def run_evaluation(
         api_url=api_options.get("url"),
         api_key=api_options.get("key"),
         api_version=api_options.get("version"),
+        debug_csv_path=debug_csv_path,
     )
 
     wer_pct = round(float(scores["wer"]) * 100, 2)
@@ -211,6 +217,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    model_slug = re.sub(r"[^A-Za-z0-9._-]+", "_", args.model).strip("_")
+    run_timestamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+    run_id = f"{model_slug}-{run_timestamp}"
+    mlruns_dir = Path("mlruns") / run_id
+    mlruns_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Saving debug artifacts under %s", mlruns_dir)
+
     leaderboard_path = (
         Path(args.leaderboard)
         if args.leaderboard
@@ -231,6 +244,8 @@ def main() -> None:
         ]
 
     for ds in datasets_to_eval:
+        dataset_slug = re.sub(r"[^A-Za-z0-9._-]+", "_", ds["dataset_name"]).strip("_")
+        debug_csv_path = mlruns_dir / f"{dataset_slug}.csv"
         scores = run_evaluation(
             model_id=args.model,
             dataset_id=ds["dataset_id"],
@@ -249,6 +264,7 @@ def main() -> None:
                 "version": args.api_version,
             },
             cache_dir=args.cache_dir,
+            debug_csv_path=debug_csv_path,
         )
         dataset_with_n = f"{ds['dataset_name']} (n={int(scores['n'])})"
         update_leaderboard(

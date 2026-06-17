@@ -1,9 +1,11 @@
 """Evaluation of ASR models."""
 
+import csv
 import io
 import logging
 import os
 import tempfile
+from pathlib import Path
 from typing import Literal
 
 import soundfile as sf
@@ -40,6 +42,7 @@ def evaluate_asr(
     api_url: str | None = None,
     api_key: str | None = None,
     api_version: str | None = None,
+    debug_csv_path: str | Path | None = None,
 ) -> dict[str, float | int]:
     """Evaluate an ASR model on a pre-loaded dataset.
 
@@ -94,13 +97,16 @@ def evaluate_asr(
             Required when ``backend="azure_openai"``. Falls back to the
             ``AZURE_OPENAI_API_VERSION`` environment variable if not provided.
             Ignored for other backends.
+        debug_csv_path:
+            Optional output path for a per-sample debug CSV containing input
+            text, prediction text, and any per-sample transcription error.
 
     Returns:
         Dict with ``"wer"`` and ``"cer"`` scores in the range ``[0, 1]``,
         and ``"n"`` as the number of successfully evaluated samples.
     """
     if backend == "elevenlabs":
-        predictions, successful_indices = _transcribe_elevenlabs(
+        predictions, successful_indices, failed_errors = _transcribe_elevenlabs(
             model_id=model_id,
             dataset=dataset,
             audio_column=audio_column,
@@ -108,7 +114,7 @@ def evaluate_asr(
             api_key=api_key,
         )
     elif backend == "azure_openai":
-        predictions, successful_indices = _transcribe_azure_openai(
+        predictions, successful_indices, failed_errors = _transcribe_azure_openai(
             model_id=model_id,
             dataset=dataset,
             audio_column=audio_column,
@@ -117,7 +123,7 @@ def evaluate_asr(
             api_version=api_version,
         )
     elif backend == "openai":
-        predictions, successful_indices = _transcribe_openai(
+        predictions, successful_indices, failed_errors = _transcribe_openai(
             model_id=model_id,
             dataset=dataset,
             audio_column=audio_column,
@@ -131,7 +137,7 @@ def evaluate_asr(
             no_lm=no_lm,
             trust_remote_code=trust_remote_code,
         )
-        predictions, successful_indices = _transcribe_hf(
+        predictions, successful_indices, failed_errors = _transcribe_hf(
             transcriber=transcriber,
             dataset=dataset,
             audio_column=audio_column,
@@ -144,17 +150,32 @@ def evaluate_asr(
             "No successful transcriptions were produced, so WER/CER cannot be computed."
         )
 
+    raw_predictions = predictions
     predictions = [
         _normalise_text(p, characters_to_keep=characters_to_keep)
-        for p in predictions
+        for p in raw_predictions
     ]
+    raw_labels = [str(dataset[idx][text_column]) for idx in successful_indices]
     labels = [
         _normalise_text(
-            dataset[idx][text_column],
+            str(dataset[idx][text_column]),
             characters_to_keep=characters_to_keep,
         )
         for idx in successful_indices
     ]
+
+    if debug_csv_path is not None:
+        _write_debug_csv(
+            dataset=dataset,
+            text_column=text_column,
+            successful_indices=successful_indices,
+            raw_labels=raw_labels,
+            labels=labels,
+            raw_predictions=raw_predictions,
+            predictions=predictions,
+            failed_errors=failed_errors,
+            debug_csv_path=debug_csv_path,
+        )
 
     failed = len(dataset) - len(successful_indices)
     if failed:
@@ -179,7 +200,7 @@ def _transcribe_hf(
     audio_column: str,
     batch_size: int,
     no_lm: bool,
-) -> tuple[list[str], list[int]]:
+) -> tuple[list[str], list[int], dict[int, str]]:
     """Transcribe a dataset using a HuggingFace ASR pipeline.
 
     Args:
@@ -195,7 +216,7 @@ def _transcribe_hf(
             Whether LM decoding is disabled (controls generate_kwargs).
 
     Returns:
-        Tuple of raw transcription strings and their dataset indices.
+        Tuple of raw transcription strings, their dataset indices, and errors.
     """
     gen_kwargs: dict = (
         {} if no_lm else {"language": "danish", "task": "transcribe"}
@@ -216,7 +237,7 @@ def _transcribe_hf(
             predictions.append(out["text"])
             successful_indices.append(idx)
             pbar.update()
-    return predictions, successful_indices
+    return predictions, successful_indices, {}
 
 
 def load_asr_pipeline(
@@ -277,7 +298,7 @@ def _transcribe_openai(
     audio_column: str,
     api_url: str | None,
     api_key: str | None,
-) -> tuple[list[str], list[int]]:
+) -> tuple[list[str], list[int], dict[int, str]]:
     """Transcribe a dataset using an OpenAI-compatible ``/audio/transcriptions`` endpoint.
 
     Writes each audio sample to a temporary WAV file and submits it to the
@@ -298,7 +319,7 @@ def _transcribe_openai(
             API key. Falls back to the ``OPENAI_API_KEY`` environment variable.
 
     Returns:
-        Tuple of raw transcription strings and their dataset indices.
+        Tuple of raw transcription strings, their dataset indices, and errors.
 
     Raises:
         ImportError:
@@ -330,6 +351,7 @@ def _transcribe_openai(
 
     predictions: list[str] = []
     successful_indices: list[int] = []
+    failed_errors: dict[int, str] = {}
     for idx, sample in enumerate(tqdm(dataset, desc="Transcribing")):
         try:
             audio = sample[audio_column]
@@ -345,10 +367,11 @@ def _transcribe_openai(
             )
             predictions.append(response.text)
             successful_indices.append(idx)
-        except Exception:
+        except Exception as exc:
             logger.exception(TRANSCRIPTION_FAILED_LOG, idx)
+            failed_errors[idx] = str(exc)
 
-    return predictions, successful_indices
+    return predictions, successful_indices, failed_errors
 
 
 def _transcribe_azure_openai(
@@ -358,7 +381,7 @@ def _transcribe_azure_openai(
     api_url: str | None,
     api_key: str | None,
     api_version: str | None,
-) -> tuple[list[str], list[int]]:
+) -> tuple[list[str], list[int], dict[int, str]]:
     """Transcribe a dataset using an Azure OpenAI ``/audio/transcriptions`` endpoint.
 
     Args:
@@ -381,7 +404,7 @@ def _transcribe_azure_openai(
             Falls back to the ``AZURE_OPENAI_API_VERSION`` environment variable.
 
     Returns:
-        Tuple of raw transcription strings and their dataset indices.
+        Tuple of raw transcription strings, their dataset indices, and errors.
 
     Raises:
         ImportError:
@@ -426,6 +449,7 @@ def _transcribe_azure_openai(
 
     predictions: list[str] = []
     successful_indices: list[int] = []
+    failed_errors: dict[int, str] = {}
     for idx, sample in enumerate(tqdm(dataset, desc="Transcribing")):
         try:
             audio = sample[audio_column]
@@ -441,10 +465,11 @@ def _transcribe_azure_openai(
             )
             predictions.append(response.text)
             successful_indices.append(idx)
-        except Exception:
+        except Exception as exc:
             logger.exception(TRANSCRIPTION_FAILED_LOG, idx)
+            failed_errors[idx] = str(exc)
 
-    return predictions, successful_indices
+    return predictions, successful_indices, failed_errors
 
 
 def _transcribe_elevenlabs(
@@ -453,7 +478,7 @@ def _transcribe_elevenlabs(
     audio_column: str,
     api_url: str | None,
     api_key: str | None,
-) -> tuple[list[str], list[int]]:
+) -> tuple[list[str], list[int], dict[int, str]]:
     """Transcribe a dataset using ElevenLabs speech-to-text.
 
     Args:
@@ -471,7 +496,7 @@ def _transcribe_elevenlabs(
             Falls back to ``ELEVENLABS_API_KEY``.
 
     Returns:
-        Tuple of raw transcription strings and their dataset indices.
+        Tuple of raw transcription strings, their dataset indices, and errors.
 
     Raises:
         ImportError:
@@ -503,6 +528,7 @@ def _transcribe_elevenlabs(
 
     predictions: list[str] = []
     successful_indices: list[int] = []
+    failed_errors: dict[int, str] = {}
     for idx, sample in enumerate(tqdm(dataset, desc="Transcribing")):
         try:
             audio = sample[audio_column]
@@ -525,10 +551,73 @@ def _transcribe_elevenlabs(
 
             predictions.append(text)
             successful_indices.append(idx)
-        except Exception:
+        except Exception as exc:
             logger.exception(TRANSCRIPTION_FAILED_LOG, idx)
+            failed_errors[idx] = str(exc)
 
-    return predictions, successful_indices
+    return predictions, successful_indices, failed_errors
+
+
+def _write_debug_csv(
+    dataset: Dataset,
+    text_column: str,
+    successful_indices: list[int],
+    raw_labels: list[str],
+    labels: list[str],
+    raw_predictions: list[str],
+    predictions: list[str],
+    failed_errors: dict[int, str],
+    debug_csv_path: str | Path,
+) -> None:
+    """Write per-sample debug rows with labels, predictions, and errors."""
+    output_path = Path(debug_csv_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    success_position = {idx: pos for pos, idx in enumerate(successful_indices)}
+
+    with output_path.open("w", newline="", encoding="utf-8") as fp:
+        writer = csv.DictWriter(
+            fp,
+            fieldnames=[
+                "sample_index",
+                "status",
+                "error",
+                "input_text_raw",
+                "input_text_normalized",
+                "prediction_text_raw",
+                "prediction_text_normalized",
+            ],
+        )
+        writer.writeheader()
+
+        for idx, sample in enumerate(dataset):
+            pos = success_position.get(idx)
+            if pos is not None:
+                writer.writerow(
+                    {
+                        "sample_index": idx,
+                        "status": "success",
+                        "error": "",
+                        "input_text_raw": raw_labels[pos],
+                        "input_text_normalized": labels[pos],
+                        "prediction_text_raw": raw_predictions[pos],
+                        "prediction_text_normalized": predictions[pos],
+                    }
+                )
+            else:
+                writer.writerow(
+                    {
+                        "sample_index": idx,
+                        "status": "failed",
+                        "error": failed_errors.get(idx, "unknown_error"),
+                        "input_text_raw": str(sample[text_column]),
+                        "input_text_normalized": "",
+                        "prediction_text_raw": "",
+                        "prediction_text_normalized": "",
+                    }
+                )
+
+    logger.info("Saved debug CSV to %s", output_path)
 
 
 # ── shared helpers ─────────────────────────────────────────────────────────────
