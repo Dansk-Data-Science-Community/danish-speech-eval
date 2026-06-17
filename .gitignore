@@ -216,3 +216,36 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Audio files
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.m4a
+*.aac
+*.wma
+*.aiff
+*.opus
+
+# ML artifacts
+*.joblib
+*.pkl
+*.pickle
+*.sav
+*.model
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.onnx
+*.h5
+*.hdf5
+*.safetensors
+
+# Hugging Face / Transformers artifacts
+.cache/huggingface/
+.huggingface/
+huggingface/
+hf_cache/
+transformers_cache/
+

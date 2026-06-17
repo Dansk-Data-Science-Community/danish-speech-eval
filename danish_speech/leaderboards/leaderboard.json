@@ -1,1 +1,27 @@
-[]
+[
+  {
+    "model_name": "openai/whisper-tiny",
+    "task": "ASR",
+    "metric": "WER",
+    "score": 86.52,
+    "dataset": "coral-v3[conversation]",
+    "timestamp": "2026-06-16"
+  },
+  {
+    "model_name": "openai/whisper-large-v3",
+    "task": "ASR",
+    "metric": "WER",
+    "score": 46.25,
+    "dataset": "coral-v3[conversation]",
+    "timestamp": "2026-06-16"
+  },
+  {
+    "model_name": "whisper-large-turbo-rld-ddi-dis-21k",
+    "task": "ASR",
+    "metric": "WER",
+    "score": 40.36,
+    "dataset": "coral-v3[conversation]",
+    "timestamp": "2026-06-17"
+  },
+  
+]
