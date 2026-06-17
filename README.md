@@ -115,9 +115,9 @@ danish-speech-eval --model openai/whisper-large-v3
 danish-speech-eval \
   --model openai/whisper-large-v3 \
   --dataset CoRal-project/coral-v3 \
-  --subset da \
+  --subset conversation \
   --split test \
-  --text-column sentence
+  --text-column text
 ```
 
 ### All CLI flags

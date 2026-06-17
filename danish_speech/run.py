@@ -16,21 +16,13 @@ SAMPLING_RATE = 16_000
 # Default datasets evaluated when no --dataset flag is provided.
 EVAL_DATASETS: list[dict] = [
     {
-        "dataset_id": "alexandrainst/coral",
-        "dataset_name": "CoRal",
+        "dataset_id": "CoRal-project/coral-v3",
+        "dataset_name": "CoRalv3",
         "subset": None,
         "split": "test",
         "audio_column": "audio",
         "text_column": "text",
-    },
-    {
-        "dataset_id": "mozilla-foundation/common_voice_17_0",
-        "dataset_name": "Common Voice 17",
-        "subset": "da",
-        "split": "test",
-        "audio_column": "audio",
-        "text_column": "sentence",
-    },
+    }
 ]
 
 
