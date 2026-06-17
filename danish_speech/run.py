@@ -18,7 +18,7 @@ EVAL_DATASETS: list[dict] = [
     {
         "dataset_id": "CoRal-project/coral-v3",
         "dataset_name": "CoRalv3",
-        "subset": None,
+        "subset": "conversation",
         "split": "test",
         "audio_column": "audio",
         "text_column": "text",

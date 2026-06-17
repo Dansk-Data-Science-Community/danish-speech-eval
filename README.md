@@ -49,6 +49,8 @@ danish_speech/
 pip install .
 ```
 
+Remember to set your HF token, using hf auth login or HF_TOKEN env var.
+
 ## Supported models
 
 ### HuggingFace pipeline backend (default)
