@@ -22,5 +22,29 @@
     "score": 40.36,
     "dataset": "coral-v3[conversation]",
     "timestamp": "2026-06-17"
+  },
+    {
+    "model_name": "openai/whisper-tiny",
+    "task": "ASR",
+    "metric": "CER",
+    "score": 74.88,
+    "dataset": "coral-v3 (n=8375)",
+    "timestamp": "2026-06-17"
+  },
+  {
+    "model_name": "scribe_v2",
+    "task": "ASR",
+    "metric": "WER",
+    "score": 27.88,
+    "dataset": "CoRalv3 (n=8375)",
+    "timestamp": "2026-06-17"
+  },
+  {
+    "model_name": "scribe_v2",
+    "task": "ASR",
+    "metric": "CER",
+    "score": 17.64,
+    "dataset": "CoRalv3 (n=8375)",
+    "timestamp": "2026-06-17"
   }
 ]
