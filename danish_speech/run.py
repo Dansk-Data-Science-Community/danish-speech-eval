@@ -42,7 +42,6 @@ def run_evaluation(
     backend: str = "huggingface",
     api_options: dict[str, str | None] | None = None,
     cache_dir: str | None = None,
-    debug_csv_path: Path | None = None,
 ) -> dict[str, float | int]:
     """Load a dataset, run ASR evaluation, and return WER and CER as percentages.
 
@@ -74,11 +73,10 @@ def run_evaluation(
             Defaults to ``"huggingface"``.
         api_options:
             Optional API options dict with keys ``"url"``, ``"key"``, and
-            ``"version"`` for backends that require them.
+            ``"version"`` for backends that require them. Optionally accepts
+            ``"debug_csv_path"`` for per-sample debug exports.
         cache_dir:
             Directory for caching downloaded datasets. Defaults to None.
-        debug_csv_path:
-            Optional CSV path for per-sample debug input/output rows.
 
     Returns:
         Dict with ``"wer"`` and ``"cer"`` scores as percentages plus
@@ -116,7 +114,7 @@ def run_evaluation(
         api_url=api_options.get("url"),
         api_key=api_options.get("key"),
         api_version=api_options.get("version"),
-        debug_csv_path=debug_csv_path,
+        debug_csv_path=api_options.get("debug_csv_path"),
     )
 
     wer_pct = round(float(scores["wer"]) * 100, 2)
@@ -262,9 +260,9 @@ def main() -> None:
                 "url": args.api_url,
                 "key": args.api_key,
                 "version": args.api_version,
+                "debug_csv_path": str(debug_csv_path),
             },
             cache_dir=args.cache_dir,
-            debug_csv_path=debug_csv_path,
         )
         dataset_with_n = f"{ds['dataset_name']} (n={int(scores['n'])})"
         update_leaderboard(
