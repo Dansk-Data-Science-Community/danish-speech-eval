@@ -24,6 +24,7 @@ from .utils import transformers_output_ignored
 logger = logging.getLogger(__package__)
 
 Backend = Literal["huggingface", "openai", "azure_openai", "elevenlabs"]
+TRANSCRIPTION_FAILED_LOG = "Transcription failed for sample %d; skipping."
 
 
 def evaluate_asr(
@@ -39,7 +40,7 @@ def evaluate_asr(
     api_url: str | None = None,
     api_key: str | None = None,
     api_version: str | None = None,
-) -> dict[str, float]:
+) -> dict[str, float | int]:
     """Evaluate an ASR model on a pre-loaded dataset.
 
     Supports four evaluation backends selected via ``backend``:
@@ -95,10 +96,11 @@ def evaluate_asr(
             Ignored for other backends.
 
     Returns:
-        Dict with ``"wer"`` and ``"cer"`` scores in the range ``[0, 1]``.
+        Dict with ``"wer"`` and ``"cer"`` scores in the range ``[0, 1]``,
+        and ``"n"`` as the number of successfully evaluated samples.
     """
     if backend == "elevenlabs":
-        predictions = _transcribe_elevenlabs(
+        predictions, successful_indices = _transcribe_elevenlabs(
             model_id=model_id,
             dataset=dataset,
             audio_column=audio_column,
@@ -106,7 +108,7 @@ def evaluate_asr(
             api_key=api_key,
         )
     elif backend == "azure_openai":
-        predictions = _transcribe_azure_openai(
+        predictions, successful_indices = _transcribe_azure_openai(
             model_id=model_id,
             dataset=dataset,
             audio_column=audio_column,
@@ -115,7 +117,7 @@ def evaluate_asr(
             api_version=api_version,
         )
     elif backend == "openai":
-        predictions = _transcribe_openai(
+        predictions, successful_indices = _transcribe_openai(
             model_id=model_id,
             dataset=dataset,
             audio_column=audio_column,
@@ -129,7 +131,7 @@ def evaluate_asr(
             no_lm=no_lm,
             trust_remote_code=trust_remote_code,
         )
-        predictions = _transcribe_hf(
+        predictions, successful_indices = _transcribe_hf(
             transcriber=transcriber,
             dataset=dataset,
             audio_column=audio_column,
@@ -137,18 +139,35 @@ def evaluate_asr(
             no_lm=no_lm,
         )
 
+    if not successful_indices:
+        raise ValueError(
+            "No successful transcriptions were produced, so WER/CER cannot be computed."
+        )
+
     predictions = [
         _normalise_text(p, characters_to_keep=characters_to_keep)
         for p in predictions
     ]
     labels = [
-        _normalise_text(sample[text_column], characters_to_keep=characters_to_keep)
-        for sample in dataset
+        _normalise_text(
+            dataset[idx][text_column],
+            characters_to_keep=characters_to_keep,
+        )
+        for idx in successful_indices
     ]
+
+    failed = len(dataset) - len(successful_indices)
+    if failed:
+        logger.warning(
+            "Skipped %d samples due to transcription failures; metrics computed on n=%d.",
+            failed,
+            len(successful_indices),
+        )
 
     return {
         "wer": wer(predictions=predictions, labels=labels),
         "cer": cer(predictions=predictions, labels=labels),
+        "n": len(successful_indices),
     }
 
 
@@ -160,7 +179,7 @@ def _transcribe_hf(
     audio_column: str,
     batch_size: int,
     no_lm: bool,
-) -> list[str]:
+) -> tuple[list[str], list[int]]:
     """Transcribe a dataset using a HuggingFace ASR pipeline.
 
     Args:
@@ -176,24 +195,28 @@ def _transcribe_hf(
             Whether LM decoding is disabled (controls generate_kwargs).
 
     Returns:
-        List of raw transcription strings.
+        Tuple of raw transcription strings and their dataset indices.
     """
     gen_kwargs: dict = (
         {} if no_lm else {"language": "danish", "task": "transcribe"}
     )
     predictions: list[str] = []
+    successful_indices: list[int] = []
     with (
         tqdm(total=len(dataset), desc="Transcribing") as pbar,
         transformers_output_ignored(),
     ):
-        for out in transcriber(
+        for idx, out in enumerate(
+            transcriber(
             KeyDataset(dataset=dataset, key=audio_column),  # type: ignore[arg-type]
             batch_size=batch_size,
             generate_kwargs=gen_kwargs,
+            )
         ):
             predictions.append(out["text"])
+            successful_indices.append(idx)
             pbar.update()
-    return predictions
+    return predictions, successful_indices
 
 
 def load_asr_pipeline(
@@ -254,7 +277,7 @@ def _transcribe_openai(
     audio_column: str,
     api_url: str | None,
     api_key: str | None,
-) -> list[str]:
+) -> tuple[list[str], list[int]]:
     """Transcribe a dataset using an OpenAI-compatible ``/audio/transcriptions`` endpoint.
 
     Writes each audio sample to a temporary WAV file and submits it to the
@@ -275,7 +298,7 @@ def _transcribe_openai(
             API key. Falls back to the ``OPENAI_API_KEY`` environment variable.
 
     Returns:
-        List of raw transcription strings.
+        Tuple of raw transcription strings and their dataset indices.
 
     Raises:
         ImportError:
@@ -306,21 +329,26 @@ def _transcribe_openai(
     )
 
     predictions: list[str] = []
-    for sample in tqdm(dataset, desc="Transcribing"):
-        audio = sample[audio_column]
-        buf = io.BytesIO()
-        sf.write(buf, audio["array"], audio["sampling_rate"], format="WAV")
-        buf.seek(0)
-        buf.name = "audio.wav"
+    successful_indices: list[int] = []
+    for idx, sample in enumerate(tqdm(dataset, desc="Transcribing")):
+        try:
+            audio = sample[audio_column]
+            buf = io.BytesIO()
+            sf.write(buf, audio["array"], audio["sampling_rate"], format="WAV")
+            buf.seek(0)
+            buf.name = "audio.wav"
 
-        response = client.audio.transcriptions.create(
-            model=model_id,
-            file=buf,
-            language="da",
-        )
-        predictions.append(response.text)
+            response = client.audio.transcriptions.create(
+                model=model_id,
+                file=buf,
+                language="da",
+            )
+            predictions.append(response.text)
+            successful_indices.append(idx)
+        except Exception:
+            logger.exception(TRANSCRIPTION_FAILED_LOG, idx)
 
-    return predictions
+    return predictions, successful_indices
 
 
 def _transcribe_azure_openai(
@@ -330,7 +358,7 @@ def _transcribe_azure_openai(
     api_url: str | None,
     api_key: str | None,
     api_version: str | None,
-) -> list[str]:
+) -> tuple[list[str], list[int]]:
     """Transcribe a dataset using an Azure OpenAI ``/audio/transcriptions`` endpoint.
 
     Args:
@@ -353,7 +381,7 @@ def _transcribe_azure_openai(
             Falls back to the ``AZURE_OPENAI_API_VERSION`` environment variable.
 
     Returns:
-        List of raw transcription strings.
+        Tuple of raw transcription strings and their dataset indices.
 
     Raises:
         ImportError:
@@ -397,21 +425,26 @@ def _transcribe_azure_openai(
     )
 
     predictions: list[str] = []
-    for sample in tqdm(dataset, desc="Transcribing"):
-        audio = sample[audio_column]
-        buf = io.BytesIO()
-        sf.write(buf, audio["array"], audio["sampling_rate"], format="WAV")
-        buf.seek(0)
-        buf.name = "audio.wav"
+    successful_indices: list[int] = []
+    for idx, sample in enumerate(tqdm(dataset, desc="Transcribing")):
+        try:
+            audio = sample[audio_column]
+            buf = io.BytesIO()
+            sf.write(buf, audio["array"], audio["sampling_rate"], format="WAV")
+            buf.seek(0)
+            buf.name = "audio.wav"
 
-        response = client.audio.transcriptions.create(
-            model=model_id,
-            file=buf,
-            language="da",
-        )
-        predictions.append(response.text)
+            response = client.audio.transcriptions.create(
+                model=model_id,
+                file=buf,
+                language="da",
+            )
+            predictions.append(response.text)
+            successful_indices.append(idx)
+        except Exception:
+            logger.exception(TRANSCRIPTION_FAILED_LOG, idx)
 
-    return predictions
+    return predictions, successful_indices
 
 
 def _transcribe_elevenlabs(
@@ -420,7 +453,7 @@ def _transcribe_elevenlabs(
     audio_column: str,
     api_url: str | None,
     api_key: str | None,
-) -> list[str]:
+) -> tuple[list[str], list[int]]:
     """Transcribe a dataset using ElevenLabs speech-to-text.
 
     Args:
@@ -438,7 +471,7 @@ def _transcribe_elevenlabs(
             Falls back to ``ELEVENLABS_API_KEY``.
 
     Returns:
-        List of raw transcription strings.
+        Tuple of raw transcription strings and their dataset indices.
 
     Raises:
         ImportError:
@@ -469,26 +502,33 @@ def _transcribe_elevenlabs(
     client = ElevenLabs(**client_kwargs)
 
     predictions: list[str] = []
-    for sample in tqdm(dataset, desc="Transcribing"):
-        audio = sample[audio_column]
-        with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
-            sf.write(tmp.name, audio["array"], audio["sampling_rate"], format="WAV")
-            with open(tmp.name, "rb") as audio_file:
-                response = client.speech_to_text.convert(
-                    file=audio_file,
-                    model_id=model_id,
-                    language_code="da",
+    successful_indices: list[int] = []
+    for idx, sample in enumerate(tqdm(dataset, desc="Transcribing")):
+        try:
+            audio = sample[audio_column]
+            with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
+                sf.write(tmp.name, audio["array"], audio["sampling_rate"], format="WAV")
+                with open(tmp.name, "rb") as audio_file:
+                    response = client.speech_to_text.convert(
+                        file=audio_file,
+                        model_id=model_id,
+                        language_code="da",
+                    )
+
+            text = getattr(response, "text", None)
+            if not text and isinstance(response, dict):
+                text = response.get("text")
+            if not text:
+                raise ValueError(
+                    "ElevenLabs response did not include transcription text."
                 )
 
-        text = getattr(response, "text", None)
-        if not text and isinstance(response, dict):
-            text = response.get("text")
-        if not text:
-            raise ValueError("ElevenLabs response did not include transcription text.")
+            predictions.append(text)
+            successful_indices.append(idx)
+        except Exception:
+            logger.exception(TRANSCRIPTION_FAILED_LOG, idx)
 
-        predictions.append(text)
-
-    return predictions
+    return predictions, successful_indices
 
 
 # ── shared helpers ─────────────────────────────────────────────────────────────

@@ -40,7 +40,7 @@ def run_evaluation(
     backend: str = "huggingface",
     api_options: dict[str, str | None] | None = None,
     cache_dir: str | None = None,
-) -> dict[str, float]:
+) -> dict[str, float | int]:
     """Load a dataset, run ASR evaluation, and return WER and CER as percentages.
 
     Args:
@@ -76,8 +76,9 @@ def run_evaluation(
             Directory for caching downloaded datasets. Defaults to None.
 
     Returns:
-        Dict with ``"wer"`` and ``"cer"`` scores as percentages
-        (e.g. ``{"wer": 12.34, "cer": 5.67}``).
+        Dict with ``"wer"`` and ``"cer"`` scores as percentages plus
+        ``"n"`` for the number of successfully evaluated samples
+        (e.g. ``{"wer": 12.34, "cer": 5.67, "n": 371}``).
     """
     logger.info("Loading dataset %r (split: %r)...", dataset_id, split)
     dataset = load_dataset_for_evaluation(
@@ -112,11 +113,13 @@ def run_evaluation(
         api_version=api_options.get("version"),
     )
 
-    wer_pct = round(scores["wer"] * 100, 2)
-    cer_pct = round(scores["cer"] * 100, 2)
+    wer_pct = round(float(scores["wer"]) * 100, 2)
+    cer_pct = round(float(scores["cer"]) * 100, 2)
+    sample_count = int(scores["n"])
     logger.info("WER on %r: %.2f%%", dataset_name, wer_pct)
     logger.info("CER on %r: %.2f%%", dataset_name, cer_pct)
-    return {"wer": wer_pct, "cer": cer_pct}
+    logger.info("Computed metrics on n=%d samples", sample_count)
+    return {"wer": wer_pct, "cer": cer_pct, "n": sample_count}
 
 
 def main() -> None:
@@ -247,21 +250,22 @@ def main() -> None:
             },
             cache_dir=args.cache_dir,
         )
+        dataset_with_n = f"{ds['dataset_name']} (n={int(scores['n'])})"
         update_leaderboard(
             leaderboard_path=leaderboard_path,
             model_name=args.model,
             task="ASR",
             metric="WER",
-            score=scores["wer"],
-            dataset=ds["dataset_name"],
+            score=float(scores["wer"]),
+            dataset=dataset_with_n,
         )
         update_leaderboard(
             leaderboard_path=leaderboard_path,
             model_name=args.model,
             task="ASR",
             metric="CER",
-            score=scores["cer"],
-            dataset=ds["dataset_name"],
+            score=float(scores["cer"]),
+            dataset=dataset_with_n,
         )
 
     logger.info("Done. Leaderboard updated at %s", leaderboard_path)
