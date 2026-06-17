@@ -29,7 +29,7 @@ Backend = Literal["huggingface", "openai", "azure_openai", "elevenlabs"]
 TRANSCRIPTION_FAILED_LOG = "Transcription failed for sample %d; skipping."
 
 
-def evaluate_asr(
+def evaluate_asr(  # NOSONAR
     model_id: str,
     dataset: Dataset,
     audio_column: str,
@@ -43,6 +43,7 @@ def evaluate_asr(
     api_key: str | None = None,
     api_version: str | None = None,
     debug_csv_path: str | Path | None = None,
+    enforce_da: bool = False,
 ) -> dict[str, float | int]:
     """Evaluate an ASR model on a pre-loaded dataset.
 
@@ -100,6 +101,18 @@ def evaluate_asr(
         debug_csv_path:
             Optional output path for a per-sample debug CSV containing input
             text, prediction text, and any per-sample transcription error.
+            Defaults to ``Path.cwd() / "debug_predictions.csv"`` when not provided.
+        enforce_da:
+            When ``True``, explicitly pass the Danish language code to every
+            backend that supports it:
+
+            * HuggingFace: ``generate_kwargs={"language": "danish", "task": "transcribe"}``
+              (Whisper-family only; logged as a warning for Wav2Vec2/CTC models).
+            * OpenAI / Azure OpenAI: ``language="da"`` in the transcriptions request.
+            * ElevenLabs: ``language_code="da"`` in the STT request.
+
+            When ``False`` (default), no language hint is sent and the model
+            auto-detects the language.
 
     Returns:
         Dict with ``"wer"`` and ``"cer"`` scores in the range ``[0, 1]``,
@@ -112,6 +125,7 @@ def evaluate_asr(
             audio_column=audio_column,
             api_url=api_url,
             api_key=api_key,
+            enforce_da=enforce_da,
         )
     elif backend == "azure_openai":
         predictions, successful_indices, failed_errors = _transcribe_azure_openai(
@@ -121,6 +135,7 @@ def evaluate_asr(
             api_url=api_url,
             api_key=api_key,
             api_version=api_version,
+            enforce_da=enforce_da,
         )
     elif backend == "openai":
         predictions, successful_indices, failed_errors = _transcribe_openai(
@@ -129,6 +144,7 @@ def evaluate_asr(
             audio_column=audio_column,
             api_url=api_url,
             api_key=api_key,
+            enforce_da=enforce_da,
         )
     else:
         logger.info("Loading ASR model %r...", model_id)
@@ -143,6 +159,7 @@ def evaluate_asr(
             audio_column=audio_column,
             batch_size=batch_size,
             no_lm=no_lm,
+            enforce_da=enforce_da,
         )
 
     if not successful_indices:
@@ -164,18 +181,20 @@ def evaluate_asr(
         for idx in successful_indices
     ]
 
-    if debug_csv_path is not None:
-        _write_debug_csv(
-            dataset=dataset,
-            text_column=text_column,
-            successful_indices=successful_indices,
-            raw_labels=raw_labels,
-            labels=labels,
-            raw_predictions=raw_predictions,
-            predictions=predictions,
-            failed_errors=failed_errors,
-            debug_csv_path=debug_csv_path,
-        )
+    if debug_csv_path is None:
+        debug_csv_path = Path.cwd() / "debug_predictions.csv"
+
+    _write_debug_csv(
+        dataset=dataset,
+        text_column=text_column,
+        successful_indices=successful_indices,
+        raw_labels=raw_labels,
+        labels=labels,
+        raw_predictions=raw_predictions,
+        predictions=predictions,
+        failed_errors=failed_errors,
+        debug_csv_path=debug_csv_path,
+    )
 
     failed = len(dataset) - len(successful_indices)
     if failed:
@@ -200,6 +219,7 @@ def _transcribe_hf(
     audio_column: str,
     batch_size: int,
     no_lm: bool,
+    enforce_da: bool = False,
 ) -> tuple[list[str], list[int], dict[int, str]]:
     """Transcribe a dataset using a HuggingFace ASR pipeline.
 
@@ -214,13 +234,22 @@ def _transcribe_hf(
             Inference batch size.
         no_lm:
             Whether LM decoding is disabled (controls generate_kwargs).
+        enforce_da:
+            When ``True``, force ``language="danish"`` in generate_kwargs.
+            Only effective for Whisper-type encoder-decoder models.
 
     Returns:
         Tuple of raw transcription strings, their dataset indices, and errors.
     """
-    gen_kwargs: dict = (
-        {} if no_lm else {"language": "danish", "task": "transcribe"}
-    )
+    if enforce_da and no_lm:
+        logger.warning(
+            "enforce_da has no effect with no_lm=True: language forcing is only "
+            "supported by Whisper-family models, not CTC/Wav2Vec2 models."
+        )
+    if enforce_da and not no_lm:
+        gen_kwargs: dict = {"language": "danish", "task": "transcribe"}
+    else:
+        gen_kwargs = {}
     predictions: list[str] = []
     successful_indices: list[int] = []
     with (
@@ -298,6 +327,7 @@ def _transcribe_openai(
     audio_column: str,
     api_url: str | None,
     api_key: str | None,
+    enforce_da: bool = False,
 ) -> tuple[list[str], list[int], dict[int, str]]:
     """Transcribe a dataset using an OpenAI-compatible ``/audio/transcriptions`` endpoint.
 
@@ -317,6 +347,8 @@ def _transcribe_openai(
             OpenAI endpoint.
         api_key:
             API key. Falls back to the ``OPENAI_API_KEY`` environment variable.
+        enforce_da:
+            When ``True``, pass ``language="da"`` to the transcriptions endpoint.
 
     Returns:
         Tuple of raw transcription strings, their dataset indices, and errors.
@@ -363,7 +395,9 @@ def _transcribe_openai(
             response = client.audio.transcriptions.create(
                 model=model_id,
                 file=buf,
-                language="da",
+                **({
+                    "language": "da"
+                } if enforce_da else {}),
             )
             predictions.append(response.text)
             successful_indices.append(idx)
@@ -381,6 +415,7 @@ def _transcribe_azure_openai(
     api_url: str | None,
     api_key: str | None,
     api_version: str | None,
+    enforce_da: bool = False,
 ) -> tuple[list[str], list[int], dict[int, str]]:
     """Transcribe a dataset using an Azure OpenAI ``/audio/transcriptions`` endpoint.
 
@@ -402,6 +437,8 @@ def _transcribe_azure_openai(
         api_version:
             Azure OpenAI API version (e.g. ``"2024-02-01"``).
             Falls back to the ``AZURE_OPENAI_API_VERSION`` environment variable.
+        enforce_da:
+            When ``True``, pass ``language="da"`` to the transcriptions endpoint.
 
     Returns:
         Tuple of raw transcription strings, their dataset indices, and errors.
@@ -461,7 +498,9 @@ def _transcribe_azure_openai(
             response = client.audio.transcriptions.create(
                 model=model_id,
                 file=buf,
-                language="da",
+                **({
+                    "language": "da"
+                } if enforce_da else {}),
             )
             predictions.append(response.text)
             successful_indices.append(idx)
@@ -478,6 +517,7 @@ def _transcribe_elevenlabs(
     audio_column: str,
     api_url: str | None,
     api_key: str | None,
+    enforce_da: bool = False,
 ) -> tuple[list[str], list[int], dict[int, str]]:
     """Transcribe a dataset using ElevenLabs speech-to-text.
 
@@ -494,6 +534,8 @@ def _transcribe_elevenlabs(
         api_key:
             ElevenLabs API key.
             Falls back to ``ELEVENLABS_API_KEY``.
+        enforce_da:
+            When ``True``, pass ``language_code="da"`` to the STT endpoint.
 
     Returns:
         Tuple of raw transcription strings, their dataset indices, and errors.
@@ -538,7 +580,9 @@ def _transcribe_elevenlabs(
                     response = client.speech_to_text.convert(
                         file=audio_file,
                         model_id=model_id,
-                        language_code="da",
+                        **({
+                            "language_code": "da"
+                        } if enforce_da else {}),
                     )
 
             text = getattr(response, "text", None)

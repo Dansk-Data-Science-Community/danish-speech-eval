@@ -28,7 +28,7 @@ EVAL_DATASETS: list[dict] = [
 ]
 
 
-def run_evaluation(
+def run_evaluation(  # noqa: PLR0913  # NOSONAR
     model_id: str,
     dataset_id: str,
     dataset_name: str,
@@ -42,6 +42,8 @@ def run_evaluation(
     backend: str = "huggingface",
     api_options: dict[str, str | None] | None = None,
     cache_dir: str | None = None,
+    enforce_da: bool = False,
+    n_indices: int | None = None,
 ) -> dict[str, float | int]:
     """Load a dataset, run ASR evaluation, and return WER and CER as percentages.
 
@@ -77,6 +79,13 @@ def run_evaluation(
             ``"debug_csv_path"`` for per-sample debug exports.
         cache_dir:
             Directory for caching downloaded datasets. Defaults to None.
+        enforce_da:
+            When ``True``, explicitly pass ``language="da"`` (or equivalent)
+            to the transcription backend. See ``evaluate_asr`` for details.
+            Defaults to False.
+        n_indices:
+            If set, only evaluate the first ``n_indices`` samples from the
+            dataset. Useful for quick smoke-tests. Defaults to None (all).
 
     Returns:
         Dict with ``"wer"`` and ``"cer"`` scores as percentages plus
@@ -99,6 +108,11 @@ def run_evaluation(
         cache_dir=cache_dir,
     )
 
+    if n_indices is not None:
+        total = len(dataset)
+        dataset = dataset.select(range(min(n_indices, total)))
+        logger.info("Subsetting dataset: using first %d of %d samples.", len(dataset), total)
+
     logger.info("Evaluating %r on %r...", model_id, dataset_name)
     api_options = api_options or {}
     scores = evaluate_asr(
@@ -115,6 +129,7 @@ def run_evaluation(
         api_key=api_options.get("key"),
         api_version=api_options.get("version"),
         debug_csv_path=api_options.get("debug_csv_path"),
+        enforce_da=enforce_da,
     )
 
     wer_pct = round(float(scores["wer"]) * 100, 2)
@@ -209,6 +224,21 @@ def main() -> None:
         "--cache-dir", default=None, help="Directory for caching datasets"
     )
     parser.add_argument(
+        "--enforce-da",
+        action="store_true",
+        help=(
+            "Explicitly pass language=da (or equivalent) to the transcription backend. "
+            "Supported by all backends. For Whisper (HuggingFace), also sets task=transcribe. "
+            "Has no effect on CTC/Wav2Vec2 models."
+        ),
+    )
+    parser.add_argument(
+        "--n-indices",
+        type=int,
+        default=None,
+        help="Evaluate only the first N samples from the dataset (useful for smoke-tests).",
+    )
+    parser.add_argument(
         "--leaderboard",
         default=None,
         help="Path to the leaderboard JSON file",
@@ -263,6 +293,8 @@ def main() -> None:
                 "debug_csv_path": str(debug_csv_path),
             },
             cache_dir=args.cache_dir,
+            enforce_da=args.enforce_da,
+            n_indices=args.n_indices,
         )
         dataset_with_n = f"{ds['dataset_name']} (n={int(scores['n'])})"
         update_leaderboard(

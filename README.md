@@ -200,10 +200,22 @@ danish-speech-eval \
 | `--api-url` | `None` | Base URL for OpenAI-compatible API (`OPENAI_BASE_URL`) / Azure endpoint (`AZURE_OPENAI_ENDPOINT`) / optional ElevenLabs base URL (`ELEVENLABS_API_URL`) |
 | `--api-key` | `None` | API key (`OPENAI_API_KEY` / `AZURE_OPENAI_API_KEY` / `ELEVENLABS_API_KEY`) |
 | `--api-version` | `None` | Azure OpenAI API version, e.g. `2025-01-01-preview` (`AZURE_OPENAI_API_VERSION`); ignored for non-Azure backends |
+| `--enforce-da` | `False` | Explicitly pass `language=da` to the backend. For Whisper (HuggingFace) also sets `task=transcribe`. No effect on CTC/Wav2Vec2 models. |
+| `--n-indices` | `None` | Evaluate only the first N samples — useful for quick smoke-tests |
 | `--cache-dir` | `None` | Directory for caching datasets |
 | `--leaderboard` | `danish_speech/leaderboards/leaderboard.json` | Path to leaderboard JSON |
 
 Results are written to `leaderboard.json` automatically.
+
+A per-sample debug CSV is always saved after each run. The default path is:
+
+```
+mlruns/<model>-<timestamp>/<dataset>.csv
+```
+
+When called programmatically without a path, it falls back to `./debug_predictions.csv` in the working directory.
+
+The CSV columns are: `sample_index`, `status`, `error`, `input_text_raw`, `input_text_normalized`, `prediction_text_raw`, `prediction_text_normalized`.
 
 ## 🚀 Get your model on the leaderboard
 
