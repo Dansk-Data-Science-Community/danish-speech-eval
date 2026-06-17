@@ -38,9 +38,7 @@ def run_evaluation(
     no_lm: bool = False,
     trust_remote_code: bool = False,
     backend: str = "huggingface",
-    api_url: str | None = None,
-    api_key: str | None = None,
-    api_version: str | None = None,
+    api_options: dict[str, str | None] | None = None,
     cache_dir: str | None = None,
 ) -> dict[str, float]:
     """Load a dataset, run ASR evaluation, and return WER and CER as percentages.
@@ -68,12 +66,12 @@ def run_evaluation(
             Pass ``trust_remote_code=True`` to the HuggingFace pipeline.
             Required for some community models (e.g. Cohere). Defaults to False.
         backend:
-            Evaluation backend: ``"huggingface"`` or ``"openai"``.
+            Evaluation backend: ``"huggingface"``, ``"openai"``,
+            ``"azure_openai"``, or ``"elevenlabs"``.
             Defaults to ``"huggingface"``.
-        api_url:
-            Base URL for the OpenAI-compatible API. Defaults to None.
-        api_key:
-            API key for the OpenAI-compatible API. Defaults to None.
+        api_options:
+            Optional API options dict with keys ``"url"``, ``"key"``, and
+            ``"version"`` for backends that require them.
         cache_dir:
             Directory for caching downloaded datasets. Defaults to None.
 
@@ -98,6 +96,7 @@ def run_evaluation(
     )
 
     logger.info("Evaluating %r on %r...", model_id, dataset_name)
+    api_options = api_options or {}
     scores = evaluate_asr(
         model_id=model_id,
         dataset=dataset,
@@ -108,9 +107,9 @@ def run_evaluation(
         no_lm=no_lm,
         trust_remote_code=trust_remote_code,
         backend=backend,  # type: ignore[arg-type]
-        api_url=api_url,
-        api_key=api_key,
-        api_version=api_version,
+        api_url=api_options.get("url"),
+        api_key=api_options.get("key"),
+        api_version=api_options.get("version"),
     )
 
     wer_pct = round(scores["wer"] * 100, 2)
@@ -167,7 +166,7 @@ def main() -> None:
     parser.add_argument(
         "--backend",
         default="huggingface",
-        choices=["huggingface", "openai", "azure_openai"],
+        choices=["huggingface", "openai", "azure_openai", "elevenlabs"],
         help="Evaluation backend",
     )
     parser.add_argument(
@@ -177,17 +176,17 @@ def main() -> None:
             "Base URL for an OpenAI-compatible transcription API "
             "(e.g. https://api.openai.com/v1) or Azure OpenAI endpoint "
             "(e.g. https://<resource>.openai.azure.com). "
-            "Can also be set via OPENAI_BASE_URL / AZURE_OPENAI_ENDPOINT. "
-            "Only used with --backend openai or azure_openai."
+            "Can also be set via OPENAI_BASE_URL / AZURE_OPENAI_ENDPOINT / "
+            "ELEVENLABS_API_URL."
         ),
     )
     parser.add_argument(
         "--api-key",
         default=None,
         help=(
-            "API key for the OpenAI-compatible or Azure OpenAI endpoint. "
-            "Can also be set via OPENAI_API_KEY / AZURE_OPENAI_API_KEY. "
-            "Only used with --backend openai or azure_openai."
+            "API key for the selected backend. "
+            "Can also be set via OPENAI_API_KEY / AZURE_OPENAI_API_KEY / "
+            "ELEVENLABS_API_KEY."
         ),
     )
     parser.add_argument(
@@ -196,7 +195,7 @@ def main() -> None:
         help=(
             "Azure OpenAI API version (e.g. 2024-02-01). "
             "Can also be set via AZURE_OPENAI_API_VERSION. "
-            "Required when --backend azure_openai."
+            "Required when --backend azure_openai and ignored otherwise."
         ),
     )
     parser.add_argument(
@@ -241,9 +240,11 @@ def main() -> None:
             no_lm=args.no_lm,
             trust_remote_code=args.trust_remote_code,
             backend=args.backend,
-            api_url=args.api_url,
-            api_key=args.api_key,
-            api_version=args.api_version,
+            api_options={
+                "url": args.api_url,
+                "key": args.api_key,
+                "version": args.api_version,
+            },
             cache_dir=args.cache_dir,
         )
         update_leaderboard(

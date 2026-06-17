@@ -23,7 +23,7 @@ from .utils import transformers_output_ignored
 
 logger = logging.getLogger(__package__)
 
-Backend = Literal["huggingface", "openai", "azure_openai"]
+Backend = Literal["huggingface", "openai", "azure_openai", "elevenlabs"]
 
 
 def evaluate_asr(
@@ -42,13 +42,15 @@ def evaluate_asr(
 ) -> dict[str, float]:
     """Evaluate an ASR model on a pre-loaded dataset.
 
-    Supports three evaluation backends selected via ``backend``:
+    Supports four evaluation backends selected via ``backend``:
 
     * ``"huggingface"`` — any model loadable via the ``transformers`` pipeline,
       including Whisper, Wav2Vec2, MMS, and Cohere transcription models.
     * ``"openai"`` — any service that implements the OpenAI
       ``POST /audio/transcriptions`` endpoint (OpenAI, Azure OpenAI, local
       whisper.cpp / faster-whisper servers, etc.).
+        * ``"azure_openai"`` — Azure OpenAI transcription deployments.
+        * ``"elevenlabs"`` — ElevenLabs speech-to-text models (e.g. ``"scribe_v2"``).
 
     Args:
         model_id:
@@ -73,26 +75,37 @@ def evaluate_asr(
             models. Defaults to False.
         backend:
             Which evaluation backend to use. ``"huggingface"`` (default),
-            ``"openai"``, or ``"azure_openai"``.
+            ``"openai"``, ``"azure_openai"``, or ``"elevenlabs"``.
         api_url:
             Base URL for the OpenAI-compatible API
             (e.g. ``"https://api.openai.com/v1"``). For ``"azure_openai"``
             this is the Azure endpoint URL
             (e.g. ``"https://<resource>.openai.azure.com"``).
-            Falls back to the ``OPENAI_BASE_URL`` / ``AZURE_OPENAI_ENDPOINT``
-            environment variables if not provided.
+            For ``"elevenlabs"``, this can be used as a custom base URL.
+            Falls back to the ``OPENAI_BASE_URL`` / ``AZURE_OPENAI_ENDPOINT`` /
+            ``ELEVENLABS_API_URL`` environment variables if not provided.
         api_key:
             API key for the API. Falls back to the ``OPENAI_API_KEY`` /
-            ``AZURE_OPENAI_API_KEY`` environment variable if not provided.
+            ``AZURE_OPENAI_API_KEY`` / ``ELEVENLABS_API_KEY`` environment
+            variable if not provided.
         api_version:
             Azure OpenAI API version (e.g. ``"2024-02-01"``).
             Required when ``backend="azure_openai"``. Falls back to the
             ``AZURE_OPENAI_API_VERSION`` environment variable if not provided.
+            Ignored for other backends.
 
     Returns:
         Dict with ``"wer"`` and ``"cer"`` scores in the range ``[0, 1]``.
     """
-    if backend == "azure_openai":
+    if backend == "elevenlabs":
+        predictions = _transcribe_elevenlabs(
+            model_id=model_id,
+            dataset=dataset,
+            audio_column=audio_column,
+            api_url=api_url,
+            api_key=api_key,
+        )
+    elif backend == "azure_openai":
         predictions = _transcribe_azure_openai(
             model_id=model_id,
             dataset=dataset,
@@ -397,6 +410,83 @@ def _transcribe_azure_openai(
             language="da",
         )
         predictions.append(response.text)
+
+    return predictions
+
+
+def _transcribe_elevenlabs(
+    model_id: str,
+    dataset: Dataset,
+    audio_column: str,
+    api_url: str | None,
+    api_key: str | None,
+) -> list[str]:
+    """Transcribe a dataset using ElevenLabs speech-to-text.
+
+    Args:
+        model_id:
+            ElevenLabs speech-to-text model ID (e.g. ``"scribe_v2"``).
+        dataset:
+            Pre-loaded evaluation dataset.
+        audio_column:
+            Name of the audio column.
+        api_url:
+            Optional custom ElevenLabs base URL.
+            Falls back to ``ELEVENLABS_API_URL``.
+        api_key:
+            ElevenLabs API key.
+            Falls back to ``ELEVENLABS_API_KEY``.
+
+    Returns:
+        List of raw transcription strings.
+
+    Raises:
+        ImportError:
+            If the ``elevenlabs`` package is not installed.
+        ValueError:
+            If no API key can be resolved.
+    """
+    try:
+        from elevenlabs.client import ElevenLabs
+    except ImportError as exc:
+        raise ImportError(
+            "The 'elevenlabs' package is required for the ElevenLabs backend. "
+            "Install it with: pip install elevenlabs"
+        ) from exc
+
+    resolved_key = api_key or os.getenv("ELEVENLABS_API_KEY")
+    if not resolved_key:
+        raise ValueError(
+            "An API key is required for the ElevenLabs backend. "
+            "Pass --api-key or set the ELEVENLABS_API_KEY environment variable."
+        )
+
+    client_kwargs: dict[str, str] = {"api_key": resolved_key}
+    resolved_url = api_url or os.getenv("ELEVENLABS_API_URL")
+    if resolved_url:
+        client_kwargs["base_url"] = resolved_url
+
+    client = ElevenLabs(**client_kwargs)
+
+    predictions: list[str] = []
+    for sample in tqdm(dataset, desc="Transcribing"):
+        audio = sample[audio_column]
+        with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
+            sf.write(tmp.name, audio["array"], audio["sampling_rate"], format="WAV")
+            with open(tmp.name, "rb") as audio_file:
+                response = client.speech_to_text.convert(
+                    file=audio_file,
+                    model_id=model_id,
+                    language_code="da",
+                )
+
+        text = getattr(response, "text", None)
+        if not text and isinstance(response, dict):
+            text = response.get("text")
+        if not text:
+            raise ValueError("ElevenLabs response did not include transcription text.")
+
+        predictions.append(text)
 
     return predictions
 

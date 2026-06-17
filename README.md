@@ -2,6 +2,24 @@
 
 A benchmark for evaluating speech to text models on Danish datasets and domains.
 
+## Table of Contents
+
+- [Evaluation metrics](#evaluation-metrics)
+- [Package structure](#package-structure)
+- [Setup](#setup)
+- [Supported models](#supported-models)
+  - [HuggingFace pipeline backend (default)](#huggingface-pipeline-backend-default)
+  - [OpenAI-compatible API backend (`--backend openai`)](#openai-compatible-api-backend---backend-openai)
+  - [Azure OpenAI backend (`--backend azure_openai`)](#azure-openai-backend---backend-azure_openai)
+  - [ElevenLabs Scribe v2](#elevenlabs-scribe-v2)
+  - [Evaluate on a specific dataset](#evaluate-on-a-specific-dataset)
+  - [All CLI flags](#all-cli-flags)
+- [Get your model on the leaderboard](#-get-your-model-on-the-leaderboard)
+- [Leaderboard (HuggingFace Space)](#leaderboard-huggingface-space)
+- [Roadmap](#roadmap)
+- [Acknowledgements](#acknowledgements)
+- [CoRal](#coral)
+
 ## Evaluation metrics
 
 | Metric | Description |
@@ -57,16 +75,15 @@ danish-speech-eval --model Alvenir/wav2vec2-base-da --no-lm
 danish-speech-eval --model syvai/hviske-v5.3 --trust-remote-code
 ```
 
-### OpenAI-compatible API backend
+### OpenAI-compatible API backend (`--backend openai`)
 
 Any service that implements the `POST /audio/transcriptions` endpoint can be
-evaluated. This includes OpenAI, Azure OpenAI, and self-hosted servers
-(whisper.cpp, faster-whisper, etc.).
+evaluated. This includes OpenAI and self-hosted servers (whisper.cpp,
+faster-whisper, etc.).
 
 | Service | `--api-url` | `--model` |
 |---|---|---|
 | **OpenAI** | *(omit — uses default)* | `whisper-1` |
-| **Azure OpenAI** | `https://<resource>.openai.azure.com/openai` | your deployment name |
 | **Local whisper.cpp / faster-whisper** | `http://localhost:8080/v1` | `whisper-1` |
 | **Any OpenAI-compatible endpoint** | your endpoint | model name |
 
@@ -77,13 +94,6 @@ danish-speech-eval \
   --backend openai \
   --api-key $OPENAI_API_KEY
 
-# Azure OpenAI
-danish-speech-eval \
-  --model my-whisper-deployment \
-  --backend openai \
-  --api-url https://my-resource.openai.azure.com/openai \
-  --api-key $AZURE_OPENAI_API_KEY
-
 # Local server (no key needed)
 danish-speech-eval \
   --model whisper-1 \
@@ -92,10 +102,60 @@ danish-speech-eval \
   --api-key none
 ```
 
-The API key can also be set via the `OPENAI_API_KEY` environment variable, and
-the base URL via `OPENAI_BASE_URL`, so you don't need to pass them on every run.
+The API key can also be set via the `OPENAI_API_KEY` environment variable and
+the base URL via `OPENAI_BASE_URL`.
+
+### Azure OpenAI backend (`--backend azure_openai`)
+
+Use `--backend azure_openai` for any model deployed in an Azure OpenAI resource,
+including `gpt-4o-transcribe`.
+
+| Setting | Value |
+|---|---|
+| `--api-url` | `https://<resource>.openai.azure.com` |
+| `--model` | your deployment name (e.g. `gpt-4o-transcribe`) |
+| `--api-version` | Azure API version (e.g. `2025-01-01-preview`) |
+
+```bash
+# Azure OpenAI — gpt-4o-transcribe deployment
+danish-speech-eval \
+  --model gpt-4o-transcribe \
+  --backend azure_openai \
+  --api-url https://my-resource.openai.azure.com \
+  --api-key $AZURE_OPENAI_API_KEY \
+  --api-version 2025-01-01-preview
+```
+
+You can also set these via environment variables to avoid passing them on every run:
+
+```bash
+export AZURE_OPENAI_ENDPOINT=https://my-resource.openai.azure.com
+export AZURE_OPENAI_API_KEY=your-key
+export AZURE_OPENAI_API_VERSION=2025-01-01-preview
+
+danish-speech-eval --model gpt-4o-transcribe --backend azure_openai
+```
+
+### ElevenLabs Scribe v2
+
+[Scribe v2](https://elevenlabs.io/docs/api-reference/speech-to-text) is ElevenLabs'
+speech-to-text model.
+
+You can now run it directly from the CLI:
+
+```bash
+danish-speech-eval \
+  --model scribe_v2 \
+  --backend elevenlabs \
+  --api-url https://api.elevenlabs.io \
+  --api-key $ELEVENLABS_API_KEY
+```
+
+For `--backend elevenlabs`, use an ElevenLabs key (`$ELEVENLABS_API_KEY`).
+`--api-version` is ignored for this backend.
 
 
+### Evaluate on all sets
 
 Evaluate a model on all configured datasets (CoRal + Common Voice 17 Danish):
 
@@ -134,9 +194,10 @@ danish-speech-eval \
 | `--batch-size` | `8` | Inference batch size (HuggingFace backend) |
 | `--no-lm` | `False` | Disable LM decoding (Wav2Vec2 models) |
 | `--trust-remote-code` | `False` | Required for Cohere and some community models |
-| `--backend` | `huggingface` | `huggingface` or `openai` |
-| `--api-url` | `None` | Base URL for OpenAI-compatible API (or set `OPENAI_BASE_URL`) |
-| `--api-key` | `None` | API key for OpenAI-compatible API (or set `OPENAI_API_KEY`) |
+| `--backend` | `huggingface` | `huggingface`, `openai`, `azure_openai`, or `elevenlabs` |
+| `--api-url` | `None` | Base URL for OpenAI-compatible API (`OPENAI_BASE_URL`) / Azure endpoint (`AZURE_OPENAI_ENDPOINT`) / optional ElevenLabs base URL (`ELEVENLABS_API_URL`) |
+| `--api-key` | `None` | API key (`OPENAI_API_KEY` / `AZURE_OPENAI_API_KEY` / `ELEVENLABS_API_KEY`) |
+| `--api-version` | `None` | Azure OpenAI API version, e.g. `2025-01-01-preview` (`AZURE_OPENAI_API_VERSION`); ignored for non-Azure backends |
 | `--cache-dir` | `None` | Directory for caching datasets |
 | `--leaderboard` | `danish_speech/leaderboards/leaderboard.json` | Path to leaderboard JSON |
 
