@@ -23,7 +23,7 @@ from .utils import transformers_output_ignored
 
 logger = logging.getLogger(__package__)
 
-Backend = Literal["huggingface", "openai"]
+Backend = Literal["huggingface", "openai", "azure_openai"]
 
 
 def evaluate_asr(
@@ -38,6 +38,7 @@ def evaluate_asr(
     backend: Backend = "huggingface",
     api_url: str | None = None,
     api_key: str | None = None,
+    api_version: str | None = None,
 ) -> dict[str, float]:
     """Evaluate an ASR model on a pre-loaded dataset.
 
@@ -71,21 +72,36 @@ def evaluate_asr(
             Required for some community models such as Cohere transcription
             models. Defaults to False.
         backend:
-            Which evaluation backend to use. ``"huggingface"`` (default) or
-            ``"openai"``.
+            Which evaluation backend to use. ``"huggingface"`` (default),
+            ``"openai"``, or ``"azure_openai"``.
         api_url:
             Base URL for the OpenAI-compatible API
-            (e.g. ``"https://api.openai.com/v1"``). Required when
-            ``backend="openai"``. Falls back to the ``OPENAI_BASE_URL``
-            environment variable if not provided.
+            (e.g. ``"https://api.openai.com/v1"``). For ``"azure_openai"``
+            this is the Azure endpoint URL
+            (e.g. ``"https://<resource>.openai.azure.com"``).
+            Falls back to the ``OPENAI_BASE_URL`` / ``AZURE_OPENAI_ENDPOINT``
+            environment variables if not provided.
         api_key:
-            API key for the OpenAI-compatible API. Falls back to the
-            ``OPENAI_API_KEY`` environment variable if not provided.
+            API key for the API. Falls back to the ``OPENAI_API_KEY`` /
+            ``AZURE_OPENAI_API_KEY`` environment variable if not provided.
+        api_version:
+            Azure OpenAI API version (e.g. ``"2024-02-01"``).
+            Required when ``backend="azure_openai"``. Falls back to the
+            ``AZURE_OPENAI_API_VERSION`` environment variable if not provided.
 
     Returns:
         Dict with ``"wer"`` and ``"cer"`` scores in the range ``[0, 1]``.
     """
-    if backend == "openai":
+    if backend == "azure_openai":
+        predictions = _transcribe_azure_openai(
+            model_id=model_id,
+            dataset=dataset,
+            audio_column=audio_column,
+            api_url=api_url,
+            api_key=api_key,
+            api_version=api_version,
+        )
+    elif backend == "openai":
         predictions = _transcribe_openai(
             model_id=model_id,
             dataset=dataset,
@@ -274,6 +290,97 @@ def _transcribe_openai(
     client = OpenAI(
         api_key=resolved_key,
         **({"base_url": resolved_url} if resolved_url else {}),
+    )
+
+    predictions: list[str] = []
+    for sample in tqdm(dataset, desc="Transcribing"):
+        audio = sample[audio_column]
+        buf = io.BytesIO()
+        sf.write(buf, audio["array"], audio["sampling_rate"], format="WAV")
+        buf.seek(0)
+        buf.name = "audio.wav"
+
+        response = client.audio.transcriptions.create(
+            model=model_id,
+            file=buf,
+            language="da",
+        )
+        predictions.append(response.text)
+
+    return predictions
+
+
+def _transcribe_azure_openai(
+    model_id: str,
+    dataset: Dataset,
+    audio_column: str,
+    api_url: str | None,
+    api_key: str | None,
+    api_version: str | None,
+) -> list[str]:
+    """Transcribe a dataset using an Azure OpenAI ``/audio/transcriptions`` endpoint.
+
+    Args:
+        model_id:
+            Azure OpenAI deployment name (e.g. ``"whisper"``), not the model
+            name — it must match the deployment created in your Azure resource.
+        dataset:
+            Pre-loaded evaluation dataset.
+        audio_column:
+            Name of the audio column.
+        api_url:
+            Azure OpenAI endpoint URL
+            (e.g. ``"https://<resource>.openai.azure.com"``).
+            Falls back to the ``AZURE_OPENAI_ENDPOINT`` environment variable.
+        api_key:
+            Azure OpenAI API key. Falls back to the ``AZURE_OPENAI_API_KEY``
+            environment variable.
+        api_version:
+            Azure OpenAI API version (e.g. ``"2024-02-01"``).
+            Falls back to the ``AZURE_OPENAI_API_VERSION`` environment variable.
+
+    Returns:
+        List of raw transcription strings.
+
+    Raises:
+        ImportError:
+            If the ``openai`` package is not installed.
+        ValueError:
+            If the endpoint URL, API key, or API version cannot be resolved.
+    """
+    try:
+        from openai import AzureOpenAI
+    except ImportError as exc:
+        raise ImportError(
+            "The 'openai' package is required for the Azure OpenAI backend. "
+            "Install it with: pip install openai"
+        ) from exc
+
+    resolved_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
+    if not resolved_key:
+        raise ValueError(
+            "An API key is required for the Azure OpenAI backend. "
+            "Pass --api-key or set the AZURE_OPENAI_API_KEY environment variable."
+        )
+
+    resolved_url = api_url or os.getenv("AZURE_OPENAI_ENDPOINT")
+    if not resolved_url:
+        raise ValueError(
+            "An endpoint URL is required for the Azure OpenAI backend. "
+            "Pass --api-url or set the AZURE_OPENAI_ENDPOINT environment variable."
+        )
+
+    resolved_version = api_version or os.getenv("AZURE_OPENAI_API_VERSION")
+    if not resolved_version:
+        raise ValueError(
+            "An API version is required for the Azure OpenAI backend. "
+            "Pass --api-version or set the AZURE_OPENAI_API_VERSION environment variable."
+        )
+
+    client = AzureOpenAI(
+        api_key=resolved_key,
+        azure_endpoint=resolved_url,
+        api_version=resolved_version,
     )
 
     predictions: list[str] = []

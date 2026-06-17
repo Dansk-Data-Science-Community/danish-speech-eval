@@ -63,7 +63,9 @@ def update_leaderboard(
         (
             i
             for i, e in enumerate(entries)
-            if e["model_name"] == model_name and e["dataset"] == dataset
+            if e["model_name"] == model_name
+            and e["dataset"] == dataset
+            and e["metric"] == metric
         ),
         None,
     )

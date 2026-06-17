@@ -40,9 +40,10 @@ def run_evaluation(
     backend: str = "huggingface",
     api_url: str | None = None,
     api_key: str | None = None,
+    api_version: str | None = None,
     cache_dir: str | None = None,
-) -> float:
-    """Load a dataset, run ASR evaluation, and return WER as a percentage.
+) -> dict[str, float]:
+    """Load a dataset, run ASR evaluation, and return WER and CER as percentages.
 
     Args:
         model_id:
@@ -77,7 +78,8 @@ def run_evaluation(
             Directory for caching downloaded datasets. Defaults to None.
 
     Returns:
-        WER score as a percentage (e.g. ``12.34`` for 12.34 %).
+        Dict with ``"wer"`` and ``"cer"`` scores as percentages
+        (e.g. ``{"wer": 12.34, "cer": 5.67}``).
     """
     logger.info("Loading dataset %r (split: %r)...", dataset_id, split)
     dataset = load_dataset_for_evaluation(
@@ -108,11 +110,14 @@ def run_evaluation(
         backend=backend,  # type: ignore[arg-type]
         api_url=api_url,
         api_key=api_key,
+        api_version=api_version,
     )
 
     wer_pct = round(scores["wer"] * 100, 2)
+    cer_pct = round(scores["cer"] * 100, 2)
     logger.info("WER on %r: %.2f%%", dataset_name, wer_pct)
-    return wer_pct
+    logger.info("CER on %r: %.2f%%", dataset_name, cer_pct)
+    return {"wer": wer_pct, "cer": cer_pct}
 
 
 def main() -> None:
@@ -162,7 +167,7 @@ def main() -> None:
     parser.add_argument(
         "--backend",
         default="huggingface",
-        choices=["huggingface", "openai"],
+        choices=["huggingface", "openai", "azure_openai"],
         help="Evaluation backend",
     )
     parser.add_argument(
@@ -170,16 +175,28 @@ def main() -> None:
         default=None,
         help=(
             "Base URL for an OpenAI-compatible transcription API "
-            "(e.g. https://api.openai.com/v1). "
-            "Can also be set via OPENAI_BASE_URL. Only used with --backend openai."
+            "(e.g. https://api.openai.com/v1) or Azure OpenAI endpoint "
+            "(e.g. https://<resource>.openai.azure.com). "
+            "Can also be set via OPENAI_BASE_URL / AZURE_OPENAI_ENDPOINT. "
+            "Only used with --backend openai or azure_openai."
         ),
     )
     parser.add_argument(
         "--api-key",
         default=None,
         help=(
-            "API key for the OpenAI-compatible endpoint. "
-            "Can also be set via OPENAI_API_KEY. Only used with --backend openai."
+            "API key for the OpenAI-compatible or Azure OpenAI endpoint. "
+            "Can also be set via OPENAI_API_KEY / AZURE_OPENAI_API_KEY. "
+            "Only used with --backend openai or azure_openai."
+        ),
+    )
+    parser.add_argument(
+        "--api-version",
+        default=None,
+        help=(
+            "Azure OpenAI API version (e.g. 2024-02-01). "
+            "Can also be set via AZURE_OPENAI_API_VERSION. "
+            "Required when --backend azure_openai."
         ),
     )
     parser.add_argument(
@@ -212,7 +229,7 @@ def main() -> None:
         ]
 
     for ds in datasets_to_eval:
-        wer_score = run_evaluation(
+        scores = run_evaluation(
             model_id=args.model,
             dataset_id=ds["dataset_id"],
             dataset_name=ds["dataset_name"],
@@ -226,6 +243,7 @@ def main() -> None:
             backend=args.backend,
             api_url=args.api_url,
             api_key=args.api_key,
+            api_version=args.api_version,
             cache_dir=args.cache_dir,
         )
         update_leaderboard(
@@ -233,7 +251,15 @@ def main() -> None:
             model_name=args.model,
             task="ASR",
             metric="WER",
-            score=wer_score,
+            score=scores["wer"],
+            dataset=ds["dataset_name"],
+        )
+        update_leaderboard(
+            leaderboard_path=leaderboard_path,
+            model_name=args.model,
+            task="ASR",
+            metric="CER",
+            score=scores["cer"],
             dataset=ds["dataset_name"],
         )
 
