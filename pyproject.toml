@@ -1,8 +1,30 @@
 [project]
 name = "danish-speech-eval"
-version = "0.0.0"
+version = "0.1.0"
 description = "A bench for evaluating speech to text and text to speech model on different Danish datasets and domains."
 readme = "README.md"
+license = { file = "LICENSE" }
+keywords = [
+    "asr",
+    "speech-to-text",
+    "danish",
+    "benchmark",
+    "wer",
+    "cer",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: Danish",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 authors = [
     {name = "Thor Steen Larsen"},
 ]
@@ -38,6 +60,7 @@ dependencies = [
 danish-speech-eval = "danish_speech.run:main"
 
 [project.urls]
+Homepage = "https://huggingface.co/spaces/DDSC/danish-speech-eval"
 Repository = "https://github.com/Dansk-Data-Science-Community/danish-speech-eval"
 Issues = "https://github.com/Dansk-Data-Science-Community/danish-speech-eval/issues"
 
