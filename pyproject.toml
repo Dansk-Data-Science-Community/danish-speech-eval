@@ -1,9 +1,9 @@
 [project]
 name = "danish-speech-eval"
-version = "0.1.0"
+version = "0.1.1"
 description = "A bench for evaluating speech to text and text to speech model on different Danish datasets and domains."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
 keywords = [
     "asr",
     "speech-to-text",
@@ -16,7 +16,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: Danish",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -63,6 +62,9 @@ danish-speech-eval = "danish_speech.run:main"
 Homepage = "https://huggingface.co/spaces/DDSC/danish-speech-eval"
 Repository = "https://github.com/Dansk-Data-Science-Community/danish-speech-eval"
 Issues = "https://github.com/Dansk-Data-Science-Community/danish-speech-eval/issues"
+
+[tool.setuptools]
+packages = ["danish_speech"]
 
 [dependency-groups]
 dev = [

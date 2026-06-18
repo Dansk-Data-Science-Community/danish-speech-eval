@@ -187,13 +187,22 @@
     });
 
     tbody.innerHTML = sorted.map((row, i) => {
-      const url = `https://huggingface.co/${row.model_name}`;
+      const fallbackHfUrl = (
+        row.model_url == null &&
+        typeof row.model_name === "string" &&
+        row.model_name.includes("/") &&
+        !row.model_name.includes("(closed_source)")
+      ) ? `https://huggingface.co/${row.model_name}` : null;
+      const url = row.model_url ?? fallbackHfUrl;
       const barW = Math.min(row.score, 100).toFixed(1);
       const cls  = werClass(row.score);
+      const modelCell = url
+        ? `<a href="${url}" target="_blank">${row.model_name}</a>`
+        : `<span>${row.model_name}</span>`;
       return `
         <tr>
           <td class="rank">${rank(i)}</td>
-          <td class="model"><a href="${url}" target="_blank">${row.model_name}</a></td>
+          <td class="model">${modelCell}</td>
           <td><span class="badge">${row.task}</span></td>
           <td>
             <div class="wer-wrap">

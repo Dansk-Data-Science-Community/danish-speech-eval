@@ -43,6 +43,7 @@ def update_leaderboard(
     metric: str,
     score: float,
     dataset: str,
+    model_url: str | None = None,
 ) -> None:
     """Add or update a result entry in the leaderboard JSON file.
 
@@ -56,6 +57,8 @@ def update_leaderboard(
         metric: Metric name (e.g. ``"WER"``).
         score: Metric value as a percentage (e.g. ``12.34`` for 12.34 % WER).
         dataset: Human-readable dataset name (e.g. ``"CoRal"``).
+        model_url: Optional URL to link from the model name in the leaderboard.
+            Defaults to None.
     """
     entries = load_leaderboard(leaderboard_path)
 
@@ -72,6 +75,7 @@ def update_leaderboard(
 
     new_entry: dict = {
         "model_name": model_name,
+        "model_url": model_url,
         "task": task,
         "metric": metric,
         "score": score,

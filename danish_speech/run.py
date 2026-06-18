@@ -88,9 +88,10 @@ def run_evaluation(  # noqa: PLR0913  # NOSONAR
             dataset. Useful for quick smoke-tests. Defaults to None (all).
 
     Returns:
-        Dict with ``"wer"`` and ``"cer"`` scores as percentages plus
-        ``"n"`` for the number of successfully evaluated samples
-        (e.g. ``{"wer": 12.34, "cer": 5.67, "n": 371}``).
+        Dict with ``"wer"`` and ``"cer"`` scores as percentages, ``"n"`` for
+        successfully evaluated samples, and ``"total"`` for total samples in
+        the full dataset split before any ``n_indices`` truncation
+        (e.g. ``{"wer": 12.34, "cer": 5.67, "n": 371, "total": 500}``).
     """
     logger.info("Loading dataset %r (split: %r)...", dataset_id, split)
     dataset = load_dataset_for_evaluation(
@@ -108,10 +109,14 @@ def run_evaluation(  # noqa: PLR0913  # NOSONAR
         cache_dir=cache_dir,
     )
 
+    total = len(dataset)
     if n_indices is not None:
-        total = len(dataset)
         dataset = dataset.select(range(min(n_indices, total)))
-        logger.info("Subsetting dataset: using first %d of %d samples.", len(dataset), total)
+        logger.info(
+            "Subsetting dataset: using first %d of %d samples.",
+            len(dataset),
+            total,
+        )
 
     logger.info("Evaluating %r on %r...", model_id, dataset_name)
     api_options = api_options or {}
@@ -138,7 +143,7 @@ def run_evaluation(  # noqa: PLR0913  # NOSONAR
     logger.info("WER on %r: %.2f%%", dataset_name, wer_pct)
     logger.info("CER on %r: %.2f%%", dataset_name, cer_pct)
     logger.info("Computed metrics on n=%d samples", sample_count)
-    return {"wer": wer_pct, "cer": cer_pct, "n": sample_count}
+    return {"wer": wer_pct, "cer": cer_pct, "n": sample_count, "total": total}
 
 
 def main() -> None:
@@ -239,11 +244,41 @@ def main() -> None:
         help="Evaluate only the first N samples from the dataset (useful for smoke-tests).",
     )
     parser.add_argument(
+        "--enforce-hf-link",
+        action="store_true",
+        help=(
+            "Force model names to link to Hugging Face even for non-huggingface backends. "
+            "By default, only --backend huggingface models are linked."
+        ),
+    )
+    parser.add_argument(
         "--leaderboard",
         default=None,
         help="Path to the leaderboard JSON file",
     )
     args = parser.parse_args()
+
+    if args.backend == "huggingface":
+        link_to_hf = True
+    else:
+        link_to_hf = False
+        if args.enforce_hf_link:
+            logger.warning(
+                "Ignoring --enforce-hf-link for backend %r; non-huggingface "
+                "backends are always marked closed_source.",
+                args.backend,
+            )
+
+    if link_to_hf:
+        model_display_name = args.model
+        model_url = f"https://huggingface.co/{args.model}"
+    else:
+        model_display_name = (
+            args.model
+            if args.model.endswith(" (closed_source)")
+            else f"{args.model} (closed_source)"
+        )
+        model_url = None
 
     model_slug = re.sub(r"[^A-Za-z0-9._-]+", "_", args.model).strip("_")
     run_timestamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -296,22 +331,30 @@ def main() -> None:
             enforce_da=args.enforce_da,
             n_indices=args.n_indices,
         )
-        dataset_with_n = f"{ds['dataset_name']} (n={int(scores['n'])})"
+        dataset_label = ds["dataset_name"]
+        if ds.get("subset"):
+            dataset_label = f"{dataset_label}[{ds['subset']}]"
+
+        if int(scores["n"]) < int(scores["total"]):
+            dataset_label = f"{dataset_label} (n={int(scores['n'])})"
+
         update_leaderboard(
             leaderboard_path=leaderboard_path,
-            model_name=args.model,
+            model_name=model_display_name,
+            model_url=model_url,
             task="ASR",
             metric="WER",
             score=float(scores["wer"]),
-            dataset=dataset_with_n,
+            dataset=dataset_label,
         )
         update_leaderboard(
             leaderboard_path=leaderboard_path,
-            model_name=args.model,
+            model_name=model_display_name,
+            model_url=model_url,
             task="ASR",
             metric="CER",
             score=float(scores["cer"]),
-            dataset=dataset_with_n,
+            dataset=dataset_label,
         )
 
     logger.info("Done. Leaderboard updated at %s", leaderboard_path)

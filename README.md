@@ -201,6 +201,7 @@ danish-speech-eval \
 | `--api-key` | `None` | API key (`OPENAI_API_KEY` / `AZURE_OPENAI_API_KEY` / `ELEVENLABS_API_KEY`) |
 | `--api-version` | `None` | Azure OpenAI API version, e.g. `2025-01-01-preview` (`AZURE_OPENAI_API_VERSION`); ignored for non-Azure backends |
 | `--enforce-da` | `False` | Explicitly pass `language=da` to the backend. For Whisper (HuggingFace) also sets `task=transcribe`. No effect on CTC/Wav2Vec2 models. |
+| `--enforce-hf-link` | `False` | For `--backend huggingface`, enforce Hugging Face linking behavior. Non-huggingface backends (`openai`, `azure_openai`, `elevenlabs`) are always marked `closed_source` and not linked. |
 | `--n-indices` | `None` | Evaluate only the first N samples — useful for quick smoke-tests |
 | `--cache-dir` | `None` | Directory for caching datasets |
 | `--leaderboard` | `danish_speech/leaderboards/leaderboard.json` | Path to leaderboard JSON |
