@@ -32,6 +32,7 @@ Backend = Literal[
     "elevenlabs",
     "qwen_asr",
 ]
+Device = Literal["auto", "cpu", "cuda"]
 TRANSCRIPTION_FAILED_LOG = "Transcription failed for sample %d; skipping."
 
 
@@ -50,6 +51,7 @@ def evaluate_asr(  # NOSONAR
     api_version: str | None = None,
     debug_csv_path: str | Path | None = None,
     enforce_da: bool = False,
+    device: Device = "auto",
 ) -> dict[str, float | int]:
     """Evaluate an ASR model on a pre-loaded dataset.
 
@@ -59,10 +61,11 @@ def evaluate_asr(  # NOSONAR
       including Whisper, Wav2Vec2, MMS, and Cohere transcription models.
     * ``"openai"`` — any service that implements the OpenAI
       ``POST /audio/transcriptions`` endpoint (OpenAI, Azure OpenAI, local
-      whisper.cpp / faster-whisper servers, etc.).
+            whisper.cpp / faster-whisper servers, etc.).
         * ``"azure_openai"`` — Azure OpenAI transcription deployments.
-        * ``"elevenlabs"`` — ElevenLabs speech-to-text models (e.g. ``"scribe_v2"``).
-                * ``"qwen_asr"`` — Qwen3-ASR models via the ``qwen-asr`` package.
+        * ``"elevenlabs"`` — ElevenLabs speech-to-text models
+            (e.g. ``"scribe_v2"``).
+        * ``"qwen_asr"`` — Qwen3-ASR models via the ``qwen-asr`` package.
 
     Args:
         model_id:
@@ -121,6 +124,12 @@ def evaluate_asr(  # NOSONAR
 
             When ``False`` (default), no language hint is sent and the model
             auto-detects the language.
+        device:
+            Device selection for local model inference backends
+            (``"huggingface"`` and ``"qwen_asr"``).
+            ``"auto"`` selects CUDA when available, otherwise CPU.
+            ``"cpu"`` forces CPU.
+            ``"cuda"`` forces CUDA and raises an error if CUDA is unavailable.
 
     Returns:
         Dict with ``"wer"`` and ``"cer"`` scores in the range ``[0, 1]``,
@@ -160,6 +169,7 @@ def evaluate_asr(  # NOSONAR
             dataset=dataset,
             audio_column=audio_column,
             enforce_da=enforce_da,
+            device=device,
         )
     else:
         logger.info("Loading ASR model %r...", model_id)
@@ -168,6 +178,7 @@ def evaluate_asr(  # NOSONAR
                 model_id=model_id,
                 no_lm=no_lm,
                 trust_remote_code=trust_remote_code,
+                device=device,
             )
             predictions, successful_indices, failed_errors = _transcribe_hf(
                 transcriber=transcriber,
@@ -192,6 +203,7 @@ def evaluate_asr(  # NOSONAR
                 dataset=dataset,
                 audio_column=audio_column,
                 enforce_da=enforce_da,
+                device=device,
             )
 
     if not successful_indices:
@@ -305,6 +317,7 @@ def load_asr_pipeline(
     model_id: str,
     no_lm: bool,
     trust_remote_code: bool = False,
+    device: Device = "auto",
 ) -> AutomaticSpeechRecognitionPipeline:
     """Load an ASR pipeline from a HuggingFace model ID.
 
@@ -318,11 +331,14 @@ def load_asr_pipeline(
             Pass ``trust_remote_code=True`` when loading. Required for some
             community models (e.g. Cohere transcription models).
             Defaults to False.
+        device:
+            Device selection: ``"auto"`` (default), ``"cpu"``, or ``"cuda"``.
 
     Returns:
         The loaded ASR pipeline.
     """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    resolved_device = _resolve_local_device(device)
+    pipeline_device = 0 if resolved_device == "cuda" else -1
 
     with transformers_output_ignored():
         if no_lm:
@@ -337,13 +353,13 @@ def load_asr_pipeline(
                 model=model,
                 tokenizer=processor.tokenizer,
                 feature_extractor=processor.feature_extractor,
-                device=device,
+                device=pipeline_device,
             )
         else:
             transcriber = pipeline(
                 task="automatic-speech-recognition",
                 model=model_id,
-                device=device,
+                device=pipeline_device,
                 trust_remote_code=trust_remote_code,
             )
 
@@ -445,6 +461,7 @@ def _transcribe_qwen_asr(
     dataset: Dataset,
     audio_column: str,
     enforce_da: bool = False,
+    device: Device = "auto",
 ) -> tuple[list[str], list[int], dict[int, str]]:
     """Transcribe a dataset using the qwen-asr package.
 
@@ -457,6 +474,8 @@ def _transcribe_qwen_asr(
             Name of the audio column.
         enforce_da:
             When ``True``, pass ``language="Danish"`` to the transcriber.
+        device:
+            Device selection: ``"auto"`` (default), ``"cpu"``, or ``"cuda"``.
 
     Returns:
         Tuple of raw transcription strings, their dataset indices, and errors.
@@ -473,8 +492,9 @@ def _transcribe_qwen_asr(
             "Install it with: pip install qwen-asr"
         ) from exc
 
-    device_map = "cuda:0" if torch.cuda.is_available() else "cpu"
-    dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+    resolved_device = _resolve_local_device(device)
+    device_map = "cuda:0" if resolved_device == "cuda" else "cpu"
+    dtype = torch.bfloat16 if resolved_device == "cuda" else torch.float32
 
     logger.info("Loading Qwen ASR model %r...", model_id)
     model = Qwen3ASRModel.from_pretrained(
@@ -505,6 +525,20 @@ def _transcribe_qwen_asr(
             failed_errors[idx] = str(exc)
 
     return predictions, successful_indices, failed_errors
+
+
+def _resolve_local_device(device: Device) -> Literal["cpu", "cuda"]:
+    """Resolve local device choice for local model inference backends."""
+    if device == "cpu":
+        return "cpu"
+    if device == "cuda":
+        if not torch.cuda.is_available():
+            raise ValueError(
+                "CUDA device requested, but CUDA is not available. "
+                "Use --device cpu or --device auto."
+            )
+        return "cuda"
+    return "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def _transcribe_azure_openai(

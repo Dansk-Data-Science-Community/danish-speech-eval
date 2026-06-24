@@ -1,6 +1,6 @@
 [project]
 name = "danish-speech-eval"
-version = "0.1.1"
+version = "0.2.1"
 description = "A bench for evaluating speech to text and text to speech model on different Danish datasets and domains."
 readme = "README.md"
 license = "MIT"

@@ -44,6 +44,7 @@ def run_evaluation(  # noqa: PLR0913  # NOSONAR
     cache_dir: str | None = None,
     enforce_da: bool = False,
     n_indices: int | None = None,
+    device: str = "auto",
 ) -> dict[str, float | int]:
     """Load a dataset, run ASR evaluation, and return WER and CER as percentages.
 
@@ -86,6 +87,9 @@ def run_evaluation(  # noqa: PLR0913  # NOSONAR
         n_indices:
             If set, only evaluate the first ``n_indices`` samples from the
             dataset. Useful for quick smoke-tests. Defaults to None (all).
+        device:
+            Device selection for local inference backends:
+            ``"auto"`` (default), ``"cpu"``, or ``"cuda"``.
 
     Returns:
         Dict with ``"wer"`` and ``"cer"`` scores as percentages, ``"n"`` for
@@ -135,6 +139,7 @@ def run_evaluation(  # noqa: PLR0913  # NOSONAR
         api_version=api_options.get("version"),
         debug_csv_path=api_options.get("debug_csv_path"),
         enforce_da=enforce_da,
+        device=device,  # type: ignore[arg-type]
     )
 
     wer_pct = round(float(scores["wer"]) * 100, 2)
@@ -233,6 +238,15 @@ def main() -> None:
     )
     parser.add_argument(
         "--cache-dir", default=None, help="Directory for caching datasets"
+    )
+    parser.add_argument(
+        "--device",
+        default="auto",
+        choices=["auto", "cpu", "cuda"],
+        help=(
+            "Device for local inference backends (huggingface and qwen_asr): "
+            "auto, cpu, or cuda."
+        ),
     )
     parser.add_argument(
         "--enforce-da",
@@ -336,6 +350,7 @@ def main() -> None:
             cache_dir=args.cache_dir,
             enforce_da=args.enforce_da,
             n_indices=args.n_indices,
+            device=args.device,
         )
         dataset_label = ds["dataset_name"]
         if ds.get("subset"):
