@@ -163,19 +163,36 @@ def evaluate_asr(  # NOSONAR
         )
     else:
         logger.info("Loading ASR model %r...", model_id)
-        transcriber = load_asr_pipeline(
-            model_id=model_id,
-            no_lm=no_lm,
-            trust_remote_code=trust_remote_code,
-        )
-        predictions, successful_indices, failed_errors = _transcribe_hf(
-            transcriber=transcriber,
-            dataset=dataset,
-            audio_column=audio_column,
-            batch_size=batch_size,
-            no_lm=no_lm,
-            enforce_da=enforce_da,
-        )
+        try:
+            transcriber = load_asr_pipeline(
+                model_id=model_id,
+                no_lm=no_lm,
+                trust_remote_code=trust_remote_code,
+            )
+            predictions, successful_indices, failed_errors = _transcribe_hf(
+                transcriber=transcriber,
+                dataset=dataset,
+                audio_column=audio_column,
+                batch_size=batch_size,
+                no_lm=no_lm,
+                enforce_da=enforce_da,
+            )
+        except ValueError as exc:
+            # Qwen3-ASR uses a custom model type not supported by the generic
+            # transformers ASR pipeline path used by this backend.
+            if "qwen3_asr" not in str(exc).lower():
+                raise
+
+            logger.warning(
+                "Detected Qwen3-ASR checkpoint with --backend huggingface; "
+                "falling back to --backend qwen_asr."
+            )
+            predictions, successful_indices, failed_errors = _transcribe_qwen_asr(
+                model_id=model_id,
+                dataset=dataset,
+                audio_column=audio_column,
+                enforce_da=enforce_da,
+            )
 
     if not successful_indices:
         raise ValueError(
