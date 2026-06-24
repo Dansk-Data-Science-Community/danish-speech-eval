@@ -12,6 +12,7 @@ A benchmark for evaluating speech to text models on Danish datasets and domains.
   - [OpenAI-compatible API backend (`--backend openai`)](#openai-compatible-api-backend---backend-openai)
   - [Azure OpenAI backend (`--backend azure_openai`)](#azure-openai-backend---backend-azure_openai)
   - [ElevenLabs Scribe v2](#elevenlabs-scribe-v2)
+  - [Qwen3-ASR backend (`--backend qwen_asr`)](#qwen3-asr-backend---backend-qwen_asr)
   - [Evaluate on a specific dataset](#evaluate-on-a-specific-dataset)
   - [All CLI flags](#all-cli-flags)
 - [Get your model on the leaderboard](#-get-your-model-on-the-leaderboard)
@@ -47,6 +48,16 @@ danish_speech/
 
 ```bash
 pip install .
+```
+
+If you want backend-specific support, install the matching extra:
+
+```bash
+# Azure OpenAI backend
+pip install ".[azureopenai]"
+
+# Qwen3-ASR backend
+pip install ".[qwen_asr]"
 ```
 
 Remember to set your HF token, using hf auth login or HF_TOKEN env var.
@@ -107,6 +118,9 @@ danish-speech-eval \
 The API key can also be set via the `OPENAI_API_KEY` environment variable and
 the base URL via `OPENAI_BASE_URL`.
 
+> Note: `openai` is only required when you use the OpenAI or Azure OpenAI
+> backends. It is installed via the `azureopenai` extra.
+
 ### Azure OpenAI backend (`--backend azure_openai`)
 
 Use `--backend azure_openai` for any model deployed in an Azure OpenAI resource,
@@ -156,6 +170,34 @@ danish-speech-eval \
 For `--backend elevenlabs`, use an ElevenLabs key (`$ELEVENLABS_API_KEY`).
 `--api-version` is ignored for this backend.
 
+### Qwen3-ASR backend (`--backend qwen_asr`)
+
+The `qwen-asr` package can run Qwen3-ASR models directly without going through
+the OpenAI-compatible API.
+
+| Setting | Value |
+|---|---|
+| `--model` | Qwen model ID, for example `Qwen/Qwen3-ASR-1.7B` |
+| `--backend` | `qwen_asr` |
+| `--api-url` | Ignored |
+| `--api-key` | Ignored |
+| `--api-version` | Ignored |
+
+```bash
+# Install the optional dependency first
+pip install ".[qwen_asr]"
+
+# Run Qwen3-ASR directly
+danish-speech-eval \
+  --model Qwen/Qwen3-ASR-1.7B \
+  --backend qwen_asr \
+  --enforce-da
+```
+
+Qwen3-ASR supports local audio files, URLs, and batch inference. When
+`--enforce-da` is enabled, the evaluator passes Danish language hints to the
+model.
+
 
 ### Evaluate on all sets
 
@@ -196,7 +238,7 @@ danish-speech-eval \
 | `--batch-size` | `8` | Inference batch size (HuggingFace backend) |
 | `--no-lm` | `False` | Disable LM decoding (Wav2Vec2 models) |
 | `--trust-remote-code` | `False` | Required for Cohere and some community models |
-| `--backend` | `huggingface` | `huggingface`, `openai`, `azure_openai`, or `elevenlabs` |
+| `--backend` | `huggingface` | `huggingface`, `openai`, `azure_openai`, `elevenlabs`, or `qwen_asr` |
 | `--api-url` | `None` | Base URL for OpenAI-compatible API (`OPENAI_BASE_URL`) / Azure endpoint (`AZURE_OPENAI_ENDPOINT`) / optional ElevenLabs base URL (`ELEVENLABS_API_URL`) |
 | `--api-key` | `None` | API key (`OPENAI_API_KEY` / `AZURE_OPENAI_API_KEY` / `ELEVENLABS_API_KEY`) |
 | `--api-version` | `None` | Azure OpenAI API version, e.g. `2025-01-01-preview` (`AZURE_OPENAI_API_VERSION`); ignored for non-Azure backends |
@@ -217,6 +259,13 @@ mlruns/<model>-<timestamp>/<dataset>.csv
 When called programmatically without a path, it falls back to `./debug_predictions.csv` in the working directory.
 
 The CSV columns are: `sample_index`, `status`, `error`, `input_text_raw`, `input_text_normalized`, `prediction_text_raw`, `prediction_text_normalized`.
+
+## Leaderboard data
+
+The leaderboard JSON can be extended with optional per-model sample details
+for a richer web viewer. A future leaderboard page can use that data to show
+hover details, comparison views, and per-sample prediction examples without
+changing the summary score table.
 
 ## 🚀 Get your model on the leaderboard
 
