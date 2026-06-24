@@ -71,7 +71,7 @@ def run_evaluation(  # noqa: PLR0913  # NOSONAR
             Required for some community models (e.g. Cohere). Defaults to False.
         backend:
             Evaluation backend: ``"huggingface"``, ``"openai"``,
-            ``"azure_openai"``, or ``"elevenlabs"``.
+            ``"azure_openai"``, ``"elevenlabs"``, or ``"qwen_asr"``.
             Defaults to ``"huggingface"``.
         api_options:
             Optional API options dict with keys ``"url"``, ``"key"``, and
@@ -193,7 +193,13 @@ def main() -> None:
     parser.add_argument(
         "--backend",
         default="huggingface",
-        choices=["huggingface", "openai", "azure_openai", "elevenlabs"],
+        choices=[
+            "huggingface",
+            "openai",
+            "azure_openai",
+            "elevenlabs",
+            "qwen_asr",
+        ],
         help="Evaluation backend",
     )
     parser.add_argument(

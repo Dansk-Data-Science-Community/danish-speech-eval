@@ -25,7 +25,13 @@ from .utils import transformers_output_ignored
 
 logger = logging.getLogger(__package__)
 
-Backend = Literal["huggingface", "openai", "azure_openai", "elevenlabs"]
+Backend = Literal[
+    "huggingface",
+    "openai",
+    "azure_openai",
+    "elevenlabs",
+    "qwen_asr",
+]
 TRANSCRIPTION_FAILED_LOG = "Transcription failed for sample %d; skipping."
 
 
@@ -47,7 +53,7 @@ def evaluate_asr(  # NOSONAR
 ) -> dict[str, float | int]:
     """Evaluate an ASR model on a pre-loaded dataset.
 
-    Supports four evaluation backends selected via ``backend``:
+    Supports five evaluation backends selected via ``backend``:
 
     * ``"huggingface"`` — any model loadable via the ``transformers`` pipeline,
       including Whisper, Wav2Vec2, MMS, and Cohere transcription models.
@@ -56,6 +62,7 @@ def evaluate_asr(  # NOSONAR
       whisper.cpp / faster-whisper servers, etc.).
         * ``"azure_openai"`` — Azure OpenAI transcription deployments.
         * ``"elevenlabs"`` — ElevenLabs speech-to-text models (e.g. ``"scribe_v2"``).
+                * ``"qwen_asr"`` — Qwen3-ASR models via the ``qwen-asr`` package.
 
     Args:
         model_id:
@@ -80,7 +87,8 @@ def evaluate_asr(  # NOSONAR
             models. Defaults to False.
         backend:
             Which evaluation backend to use. ``"huggingface"`` (default),
-            ``"openai"``, ``"azure_openai"``, or ``"elevenlabs"``.
+            ``"openai"``, ``"azure_openai"``, ``"elevenlabs"``, or
+            ``"qwen_asr"``.
         api_url:
             Base URL for the OpenAI-compatible API
             (e.g. ``"https://api.openai.com/v1"``). For ``"azure_openai"``
@@ -144,6 +152,13 @@ def evaluate_asr(  # NOSONAR
             audio_column=audio_column,
             api_url=api_url,
             api_key=api_key,
+            enforce_da=enforce_da,
+        )
+    elif backend == "qwen_asr":
+        predictions, successful_indices, failed_errors = _transcribe_qwen_asr(
+            model_id=model_id,
+            dataset=dataset,
+            audio_column=audio_column,
             enforce_da=enforce_da,
         )
     else:
@@ -400,6 +415,73 @@ def _transcribe_openai(
                 } if enforce_da else {}),
             )
             predictions.append(response.text)
+            successful_indices.append(idx)
+        except Exception as exc:
+            logger.exception(TRANSCRIPTION_FAILED_LOG, idx)
+            failed_errors[idx] = str(exc)
+
+    return predictions, successful_indices, failed_errors
+
+
+def _transcribe_qwen_asr(
+    model_id: str,
+    dataset: Dataset,
+    audio_column: str,
+    enforce_da: bool = False,
+) -> tuple[list[str], list[int], dict[int, str]]:
+    """Transcribe a dataset using the qwen-asr package.
+
+    Args:
+        model_id:
+            Qwen3-ASR model ID to load.
+        dataset:
+            Pre-loaded evaluation dataset.
+        audio_column:
+            Name of the audio column.
+        enforce_da:
+            When ``True``, pass ``language="Danish"`` to the transcriber.
+
+    Returns:
+        Tuple of raw transcription strings, their dataset indices, and errors.
+
+    Raises:
+        ImportError:
+            If the ``qwen-asr`` package is not installed.
+    """
+    try:
+        from qwen_asr import Qwen3ASRModel
+    except ImportError as exc:
+        raise ImportError(
+            "The 'qwen-asr' package is required for the qwen_asr backend. "
+            "Install it with: pip install qwen-asr"
+        ) from exc
+
+    device_map = "cuda:0" if torch.cuda.is_available() else "cpu"
+    dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+
+    logger.info("Loading Qwen ASR model %r...", model_id)
+    model = Qwen3ASRModel.from_pretrained(
+        model_id,
+        dtype=dtype,
+        device_map=device_map,
+        max_inference_batch_size=32,
+        max_new_tokens=256,
+    )
+
+    predictions: list[str] = []
+    successful_indices: list[int] = []
+    failed_errors: dict[int, str] = {}
+    language = "Danish" if enforce_da else None
+
+    for idx, sample in enumerate(tqdm(dataset, desc="Transcribing")):
+        try:
+            audio = sample[audio_column]
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmp:
+                sf.write(tmp.name, audio["array"], audio["sampling_rate"])
+                results = model.transcribe(audio=tmp.name, language=language)
+
+            result = results[0] if isinstance(results, list) else results
+            predictions.append(result.text)
             successful_indices.append(idx)
         except Exception as exc:
             logger.exception(TRANSCRIPTION_FAILED_LOG, idx)

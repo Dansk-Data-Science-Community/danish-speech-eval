@@ -40,7 +40,6 @@ dependencies = [
     "joblib>=1.5.1",
     "librosa>=0.11.0",
     "elevenlabs>=2.0.0",
-    "openai>=1.0.0",
     "pandas>=2.0.0",
     "progress>=1.6.1",
     "pycountry>=24.6.1",
@@ -53,6 +52,14 @@ dependencies = [
     "torchaudio>=2.6.0,<2.7.0",  # Upper bound for compatibility with audiomentations
     "tqdm>=4.66.0",
     "transformers>=4.54.1",
+]
+
+[project.optional-dependencies]
+azureopenai = [
+    "openai>=1.0.0",
+]
+qwen_asr = [
+    "qwen-asr>=0.0.6",
 ]
 
 [project.scripts]
