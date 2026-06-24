@@ -128,17 +128,35 @@
       position: fixed;
       z-index: 40;
       width: min(420px, calc(100vw - 24px));
+      max-height: calc(100vh - 40px);
+      overflow: hidden;
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 14px;
       box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
       padding: 14px;
       pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
     }
     .hover-card.hidden { display: none; }
-    .hover-card h3 { font-size: 0.95rem; margin-bottom: 4px; }
+    .hover-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+    .hover-card-header h3 { font-size: 0.95rem; flex: 1; }
+    .hover-close {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 0 2px;
+      border-radius: 4px;
+    }
+    .hover-close:hover { color: var(--text); background: var(--border); }
     .hover-card .meta { color: var(--muted); font-size: 0.78rem; margin-bottom: 10px; }
-    .hover-samples { display: grid; gap: 10px; max-height: 360px; overflow: auto; }
+    .hover-samples { display: grid; gap: 10px; overflow-y: auto; flex: 1; padding-right: 2px; }
     .sample-item { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: #fff; }
     .sample-item .sample-audio { font-size: 0.76rem; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
     .sample-item .sample-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 8px; }
@@ -304,6 +322,7 @@
   let activeView = "leaderboard";
   let selectedComparisonModels = [];
   let hoverHideTimer = null;
+  let activeHoverTarget = null;
   const hoverCard = document.getElementById("hover-card");
 
   function getRowKey(row) {
@@ -466,16 +485,17 @@
 
   function getHoverCardContent(row) {
     const samples = getSamples(row).slice(0, 10);
-    if (!samples.length) {
-      return `
+    const headerHtml = `
+      <div class="hover-card-header">
         <h3>${escapeHtml(row.model_name)}</h3>
-        <div class="meta">No example samples are stored in this row yet.</div>
-      `;
+        <button class="hover-close" aria-label="Close" title="Close">✕</button>
+      </div>
+    `;
+    if (!samples.length) {
+      return headerHtml + `<div class="meta">No example samples are stored in this row yet.</div>`;
     }
-
-    return `
-      <h3>${escapeHtml(row.model_name)}</h3>
-      <div class="meta">${samples.length} stored sample${samples.length === 1 ? "" : "s"}</div>
+    return headerHtml + `
+      <div class="meta">${samples.length} sample${samples.length === 1 ? "" : "s"}</div>
       <div class="hover-samples">
         ${samples.map(sample => `
           <div class="sample-item">
@@ -490,23 +510,53 @@
     `;
   }
 
+  function positionHoverCard(target) {
+    const MARGIN = 14;
+    const bounds = target.getBoundingClientRect();
+    const cardW = hoverCard.offsetWidth;
+    const cardH = hoverCard.offsetHeight;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Prefer right of link; fall back to left if no room
+    let left = bounds.right + MARGIN;
+    if (left + cardW > vw - MARGIN) {
+      left = Math.max(MARGIN, bounds.left - cardW - MARGIN);
+    }
+    // Align top with the link; clamp so the card never overflows the bottom
+    let top = bounds.top;
+    if (top + cardH > vh - MARGIN) {
+      top = Math.max(MARGIN, vh - cardH - MARGIN);
+    }
+    hoverCard.style.left = `${left}px`;
+    hoverCard.style.top = `${top}px`;
+  }
+
   function showHoverCard(row, target) {
+    if (activeHoverTarget === target) {
+      // Already shown for this target — just cancel any pending hide
+      window.clearTimeout(hoverHideTimer);
+      return;
+    }
+    activeHoverTarget = target;
     hoverCard.innerHTML = getHoverCardContent(row);
     hoverCard.classList.remove("hidden");
     hoverCard.setAttribute("aria-hidden", "false");
+    positionHoverCard(target);
 
-    const bounds = target.getBoundingClientRect();
-    const left = Math.min(bounds.right + 12, window.innerWidth - 24);
-    const top = Math.max(12, Math.min(bounds.top, window.innerHeight - 20));
-    hoverCard.style.top = `${top}px`;
-    hoverCard.style.left = `${left}px`;
+    // Close button inside the card
+    hoverCard.querySelector(".hover-close")?.addEventListener("click", () => {
+      activeHoverTarget = null;
+      hideHoverCard(0);
+    });
   }
 
-  function hideHoverCard(delay = 0) {
+  function hideHoverCard(delay = 300) {
     window.clearTimeout(hoverHideTimer);
     hoverHideTimer = window.setTimeout(() => {
       hoverCard.classList.add("hidden");
       hoverCard.setAttribute("aria-hidden", "true");
+      activeHoverTarget = null;
     }, delay);
   }
 
@@ -736,7 +786,7 @@
   hoverCard.addEventListener("mouseenter", () => {
     window.clearTimeout(hoverHideTimer);
   });
-  hoverCard.addEventListener("mouseleave", () => hideHoverCard(80));
+  hoverCard.addEventListener("mouseleave", () => hideHoverCard(300));
 
   fetch("leaderboard.json")
     .then(r => r.json())
@@ -763,15 +813,18 @@
       document.getElementById("tbody").addEventListener("mouseover", event => {
         const target = event.target.closest("[data-row-key]");
         if (!target) return;
+        window.clearTimeout(hoverHideTimer); // cancel any in-flight hide
         const row = all.find(entry => getRowKey(entry) === target.dataset.rowKey);
         if (!row) return;
         showHoverCard(row, target);
       });
       document.getElementById("tbody").addEventListener("mouseout", event => {
-        if (event.relatedTarget && hoverCard.contains(event.relatedTarget)) return;
-        hideHoverCard(120);
+        // Only schedule a hide if the mouse is going somewhere outside both
+        // the trigger link AND the hover card itself
+        const to = event.relatedTarget;
+        if (to && (hoverCard.contains(to) || to.closest("[data-row-key]"))) return;
+        hideHoverCard(300);
       });
-      document.addEventListener("scroll", () => hideHoverCard(0), true);
     })
     .catch(() => {
       document.getElementById("tbody").innerHTML =
