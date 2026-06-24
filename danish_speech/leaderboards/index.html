@@ -112,6 +112,8 @@
     tbody tr:nth-child(3) td.rank { color: #92400e; }
     .model-link { color: var(--red); text-decoration: none; font-weight: 500; cursor: help; }
     .model-link:hover { text-decoration: underline; }
+    .dataset-link { color: var(--red); text-decoration: none; font-weight: 500; }
+    .dataset-link:hover { text-decoration: underline; }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; background: #e0e7ff; color: #3730a3; }
     .wer-wrap { display: flex; align-items: center; gap: 8px; }
     .wer-num { font-weight: 700; font-size: 0.95rem; min-width: 52px; }
@@ -711,6 +713,9 @@
       const modelCell = url
         ? `<a href="${url}" target="_blank" class="model-link" data-row-key="${escapeHtml(rowKey)}">${row.model_name}</a>`
         : `<span class="model-link" data-row-key="${escapeHtml(rowKey)}">${row.model_name}</span>`;
+      const datasetCell = row.dataset_link
+        ? `<a href="${escapeHtml(row.dataset_link)}" target="_blank" class="dataset-link">${escapeHtml(row.dataset)}</a>`
+        : `${escapeHtml(row.dataset)}`;
       return `
         <tr>
           <td class="rank">${rank(i)}</td>
@@ -723,7 +728,7 @@
             </div>
           </td>
           <td>${row.metric}</td>
-          <td>${row.dataset}</td>
+          <td>${datasetCell}</td>
           <td style="color:#9ca3af;font-size:.8rem">${row.timestamp ?? ""}</td>
         </tr>`;
     }).join("");

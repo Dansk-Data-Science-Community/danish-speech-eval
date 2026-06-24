@@ -56,6 +56,7 @@
         "prediction": "jeg er sammenkort mig at sænne og hvis måtte tænne."
       }
     ],
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-16"
   },
@@ -64,6 +65,7 @@
     "task": "ASR",
     "metric": "WER",
     "score": 46.25,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-16"
   },
@@ -72,6 +74,7 @@
     "task": "ASR",
     "metric": "CER",
     "score": 74.88,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-17"
   },
@@ -93,6 +96,7 @@
         "prediction": "så er der bare at snakke af."
       }
     ],
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-17"
   },
@@ -102,6 +106,7 @@
     "task": "ASR",
     "metric": "CER",
     "score": 17.64,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-17"
   },
@@ -111,6 +116,7 @@
     "task": "ASR",
     "metric": "WER",
     "score": 38.24,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-19"
   },
@@ -120,6 +126,7 @@
     "task": "ASR",
     "metric": "CER",
     "score": 24.89,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-19"
   },
@@ -129,6 +136,7 @@
     "task": "ASR",
     "metric": "WER",
     "score": 43.22,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-19"
   },
@@ -138,6 +146,7 @@
     "task": "ASR",
     "metric": "CER",
     "score": 31.65,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-19"
   },
@@ -146,6 +155,7 @@
     "task": "ASR",
     "metric": "WER",
     "score": 19.09,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-22"
   },
@@ -154,6 +164,7 @@
     "task": "ASR",
     "metric": "CER",
     "score": 11.17,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-22"
   },
@@ -162,6 +173,7 @@
     "task": "ASR",
     "metric": "WER",
     "score": 18.87,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-22"
   },
@@ -170,6 +182,7 @@
     "task": "ASR",
     "metric": "CER",
     "score": 11.21,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-22"
   },
@@ -178,6 +191,7 @@
     "task": "ASR",
     "metric": "CER",
     "score": 68.85,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-22"
   },
@@ -186,6 +200,7 @@
     "task": "ASR",
     "metric": "WER",
     "score": 97.69,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-22"
   }
