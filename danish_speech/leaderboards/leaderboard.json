@@ -4,7 +4,7 @@
     "task": "ASR",
     "metric": "WER",
     "score": 86.52,
-    "dataset": "coral-v3[conversation]",
+    "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-16"
   },
   {
@@ -12,39 +12,117 @@
     "task": "ASR",
     "metric": "WER",
     "score": 46.25,
-    "dataset": "coral-v3[conversation]",
+    "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-16"
   },
   {
-    "model_name": "whisper-large-turbo-rld-ddi-dis-21k",
-    "task": "ASR",
-    "metric": "WER",
-    "score": 40.36,
-    "dataset": "coral-v3[conversation]",
-    "timestamp": "2026-06-17"
-  },
-    {
     "model_name": "openai/whisper-tiny",
     "task": "ASR",
     "metric": "CER",
     "score": 74.88,
-    "dataset": "coral-v3 (n=8375)",
+    "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-17"
   },
   {
-    "model_name": "scribe_v2",
+    "model_name": "scribe_v2 (closed_source)",
+    "model_url": null,
     "task": "ASR",
     "metric": "WER",
     "score": 27.88,
-    "dataset": "CoRalv3 (n=8375)",
+    "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-17"
   },
   {
-    "model_name": "scribe_v2",
+    "model_name": "scribe_v2 (closed_source)",
+    "model_url": null,
     "task": "ASR",
     "metric": "CER",
     "score": 17.64,
-    "dataset": "CoRalv3 (n=8375)",
+    "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-17"
+  },
+  {
+    "model_name": "gpt-4o-mini-transcribe (closed_source)",
+    "model_url": null,
+    "task": "ASR",
+    "metric": "WER",
+    "score": 38.24,
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-19"
+  },
+  {
+    "model_name": "gpt-4o-mini-transcribe (closed_source)",
+    "model_url": null,
+    "task": "ASR",
+    "metric": "CER",
+    "score": 24.89,
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-19"
+  },
+  {
+    "model_name": "gpt-4o-transcribe (closed_source)",
+    "model_url": null,
+    "task": "ASR",
+    "metric": "WER",
+    "score": 43.22,
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-19"
+  },
+  {
+    "model_name": "gpt-4o-transcribe (closed_source)",
+    "model_url": null,
+    "task": "ASR",
+    "metric": "CER",
+    "score": 31.65,
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-19"
+  },
+  {
+    "model_name": "CoRal-project/roest-v3-whisper-1.5b",
+    "task": "ASR",
+    "metric": "WER",
+    "score": 19.09,
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-22"
+  },
+  {
+    "model_name": "CoRal-project/roest-v3-whisper-1.5b",
+    "task": "ASR",
+    "metric": "CER",
+    "score": 11.17,
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-22"
+  },
+  {
+    "model_name": "syvai/hviske-v5.3",
+    "task": "ASR",
+    "metric": "WER",
+    "score": 18.87,
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-22"
+  },
+  {
+    "model_name": "syvai/hviske-v5.3",
+    "task": "ASR",
+    "metric": "CER",
+    "score": 11.21,
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-22"
+  },
+  {
+    "model_name": "CohereLabs/cohere-transcribe-03-2026",
+    "task": "ASR",
+    "metric": "CER",
+    "score": 68.85,
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-22"
+  },
+  {
+    "model_name": "CohereLabs/cohere-transcribe-03-2026",
+    "task": "ASR",
+    "metric": "WER",
+    "score": 97.69,
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-22"
   }
 ]

@@ -107,7 +107,7 @@
   <span class="flag">🇩🇰</span>
   <div>
     <h1>Danish Speech Evaluation Leaderboard</h1>
-    <p>Automatic Speech Recognition (ASR) · Word Error Rate (WER) · lower is better</p>
+    <p>Automatic Speech Recognition (ASR) · Word Error Rate (WER) and Character Error Rate (CER) · lower is better</p>
   </div>
   <img src="ddsc-logo.png" alt="DDSC logo" class="header-logo" />
 </header>
@@ -115,15 +115,16 @@
 <main class="container">
 
   <div class="stats">
-    <div class="stat"><div class="val" id="s-models">—</div><div class="lbl">Models</div></div>
-    <div class="stat"><div class="val" id="s-datasets">—</div><div class="lbl">Datasets</div></div>
-    <div class="stat"><div class="val" id="s-best">—</div><div class="lbl">Best WER</div></div>
-    <div class="stat"><div class="val" id="s-total">—</div><div class="lbl">Evaluations</div></div>
+    <div class="stat"><div class="val" id="s-models">—</div><div class="lbl">Model</div></div>
+    <div class="stat"><div class="val" id="s-datasets">—</div><div class="lbl">Dataset</div></div>
+    <div class="stat"><div class="val" id="s-best">—</div><div class="lbl">Best Metric Score</div></div>
+    <div class="stat"><div class="val" id="s-total">—</div><div class="lbl">Evaluation</div></div>
   </div>
 
   <div class="controls">
     <input id="q" type="search" placeholder="🔍  Search models…" />
     <select id="ds-filter"><option value="">All datasets</option></select>
+    <select id="metric-filter"><option value="">All metrics</option></select>
   </div>
 
   <div class="table-wrap">
@@ -133,7 +134,7 @@
           <th>#</th>
           <th data-col="model_name">Model<i class="si"></i></th>
           <th data-col="task">Task<i class="si"></i></th>
-          <th data-col="score" class="asc">WER %<i class="si"></i></th>
+          <th data-col="score" class="asc">SCORE %<i class="si"></i></th>
           <th data-col="metric">Metric<i class="si"></i></th>
           <th data-col="dataset">Dataset<i class="si"></i></th>
           <th data-col="timestamp">Date<i class="si"></i></th>
@@ -158,12 +159,44 @@
 <script>
   /* ── state ── */
   let all = [];
+  let metricRanges = {};
   let sortCol = "score";
   let sortDir = "asc"; // asc = lowest WER first
 
   /* ── helpers ── */
-  function werClass(v) { return v < 15 ? "good" : v < 30 ? "ok" : "poor"; }
-  function werColor(v) { return v < 15 ? "#16a34a" : v < 30 ? "#ca8a04" : "#dc2626"; }
+  function buildMetricRanges(data) {
+    const byMetric = {};
+    data.forEach(r => {
+      const metric = r.metric ?? "";
+      const score = Number(r.score);
+      if (!Number.isFinite(score)) return;
+      if (!byMetric[metric]) byMetric[metric] = { min: score, max: score };
+      byMetric[metric].min = Math.min(byMetric[metric].min, score);
+      byMetric[metric].max = Math.max(byMetric[metric].max, score);
+    });
+    return byMetric;
+  }
+
+  function metricRatio(metric, score) {
+    const s = Number(score);
+    if (!Number.isFinite(s)) return 0;
+    const range = metricRanges[metric];
+    if (!range) return 0;
+    const span = range.max - range.min;
+    if (span <= 0) return 0;
+    return (s - range.min) / span; // lower is better
+  }
+
+  function metricClass(metric, score) {
+    const r = metricRatio(metric, score);
+    return r < 0.33 ? "good" : r < 0.66 ? "ok" : "poor";
+  }
+
+  function metricColor(metric, score) {
+    const r = metricRatio(metric, score);
+    return r < 0.33 ? "#16a34a" : r < 0.66 ? "#ca8a04" : "#dc2626";
+  }
+
   function rank(i) {
     if (i === 0) return "🥇";
     if (i === 1) return "🥈";
@@ -195,7 +228,7 @@
       ) ? `https://huggingface.co/${row.model_name}` : null;
       const url = row.model_url ?? fallbackHfUrl;
       const barW = Math.min(row.score, 100).toFixed(1);
-      const cls  = werClass(row.score);
+      const cls  = metricClass(row.metric, row.score);
       const modelCell = url
         ? `<a href="${url}" target="_blank">${row.model_name}</a>`
         : `<span>${row.model_name}</span>`;
@@ -207,7 +240,7 @@
           <td>
             <div class="wer-wrap">
               <span class="wer-num ${cls}">${row.score.toFixed(1)}%</span>
-              <div class="bar"><div class="bar-fill" style="width:${barW}%;background:${werColor(row.score)}"></div></div>
+              <div class="bar"><div class="bar-fill" style="width:${barW}%;background:${metricColor(row.metric, row.score)}"></div></div>
             </div>
           </td>
           <td>${row.metric}</td>
@@ -227,11 +260,13 @@
 
   /* ── filter ── */
   function applyFilters() {
-    const q  = document.getElementById("q").value.toLowerCase();
-    const ds = document.getElementById("ds-filter").value;
+    const q      = document.getElementById("q").value.toLowerCase();
+    const ds     = document.getElementById("ds-filter").value;
+    const metric = document.getElementById("metric-filter").value;
     render(all.filter(r =>
       r.model_name.toLowerCase().includes(q) &&
-      (!ds || r.dataset === ds)
+      (!ds || r.dataset === ds) &&
+      (!metric || r.metric === metric)
     ));
   }
 
@@ -253,18 +288,26 @@
 
   document.getElementById("q").addEventListener("input", applyFilters);
   document.getElementById("ds-filter").addEventListener("change", applyFilters);
+  document.getElementById("metric-filter").addEventListener("change", applyFilters);
 
   /* ── load data ── */
   fetch("leaderboard.json")
     .then(r => r.json())
     .then(data => {
       all = data;
+      metricRanges = buildMetricRanges(data);
       updateStats(data);
-      const sel = document.getElementById("ds-filter");
+      const dsSel = document.getElementById("ds-filter");
+      const metricSel = document.getElementById("metric-filter");
       [...new Set(data.map(r => r.dataset))].sort().forEach(ds => {
         const o = document.createElement("option");
         o.value = o.textContent = ds;
-        sel.appendChild(o);
+        dsSel.appendChild(o);
+      });
+      [...new Set(data.map(r => r.metric))].sort().forEach(metric => {
+        const o = document.createElement("option");
+        o.value = o.textContent = metric;
+        metricSel.appendChild(o);
       });
       applyFilters();
     })
