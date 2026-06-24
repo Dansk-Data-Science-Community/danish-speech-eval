@@ -16,93 +16,207 @@
       --good: #16a34a;
       --ok: #ca8a04;
       --poor: #dc2626;
-      --shadow: 0 1px 4px rgba(0,0,0,.08);
+      --subtle: #eef2ff;
+      --insert: #dcfce7;
+      --delete: #fee2e2;
+      --shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(180deg, #f8fafc 0%, var(--bg) 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
 
-    /* ── Header ── */
-    header { background: var(--header); padding: 24px 32px; display: flex; align-items: center; gap: 14px; }
+    header {
+      background: var(--header);
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
     .flag { font-size: 2rem; line-height: 1; }
     header h1 { color: #fff; font-size: 1.5rem; font-weight: 700; }
-    header p { color: rgba(255,255,255,.65); font-size: .85rem; margin-top: 3px; }
-    .header-logo { margin-left: auto; height: 48px; width: auto; opacity: .92; }
+    header p { color: rgba(255, 255, 255, 0.65); font-size: 0.85rem; margin-top: 3px; }
+    .header-logo { margin-left: auto; height: 48px; width: auto; opacity: 0.92; }
 
-    /* ── Layout ── */
     .container { max-width: 1200px; margin: 0 auto; padding: 32px 16px; }
 
-    /* ── Stat cards ── */
+    .tabs { display: flex; gap: 10px; margin: 6px 0 18px; flex-wrap: wrap; }
+    .tab {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 10px 16px;
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+    .tab.active { background: var(--header); color: #fff; border-color: var(--header); }
+    .view.hidden { display: none; }
+
     .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 28px; }
     .stat { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; text-align: center; box-shadow: var(--shadow); }
     .stat .val { font-size: 1.9rem; font-weight: 700; color: var(--red); }
-    .stat .lbl { font-size: .72rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .06em; }
+    .stat .lbl { font-size: 0.72rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
 
-    /* ── Controls ── */
     .controls { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-    .controls input, .controls select {
-      padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
-      font-size: .875rem; background: var(--card); color: var(--text); outline: none;
+    .controls input,
+    .controls select {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.875rem;
+      background: var(--card);
+      color: var(--text);
+      outline: none;
     }
     .controls input { flex: 1; min-width: 200px; }
     .controls input:focus, .controls select:focus { border-color: var(--red); }
+    .hint { color: var(--muted); font-size: 0.8rem; margin-top: 6px; }
 
-    /* ── Table ── */
-    .table-wrap { background: var(--card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow); }
+    .table-wrap {
+      background: var(--card);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
     table { width: 100%; border-collapse: collapse; }
     thead th {
-      background: var(--header); color: #fff; padding: 13px 16px;
-      text-align: left; font-size: .75rem; text-transform: uppercase;
-      letter-spacing: .07em; cursor: pointer; user-select: none; white-space: nowrap;
+      background: var(--header);
+      color: #fff;
+      padding: 13px 16px;
+      text-align: left;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
     }
     thead th:hover { background: #404040; }
-    thead th .si { margin-left: 5px; opacity: .45; font-style: normal; }
-    thead th.asc  .si::after { content: " ↑"; opacity: 1; }
+    thead th .si { margin-left: 5px; opacity: 0.45; font-style: normal; }
+    thead th.asc .si::after { content: " ↑"; opacity: 1; }
     thead th.desc .si::after { content: " ↓"; opacity: 1; }
     thead th:not(.asc):not(.desc) .si::after { content: " ↕"; }
-
-    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: #f1f5f9; }
-    td { padding: 13px 16px; font-size: .875rem; vertical-align: middle; }
-
-    /* rank */
+    td { padding: 13px 16px; font-size: 0.875rem; vertical-align: middle; }
     td.rank { font-weight: 700; color: var(--muted); text-align: center; width: 52px; }
     tbody tr:nth-child(1) td.rank { color: #ca8a04; font-size: 1.1rem; }
     tbody tr:nth-child(2) td.rank { color: #9ca3af; }
     tbody tr:nth-child(3) td.rank { color: #92400e; }
-
-    /* model name */
-    td.model a { color: var(--red); text-decoration: none; font-weight: 500; }
-    td.model a:hover { text-decoration: underline; }
-
-    /* badge */
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .72rem; font-weight: 600; background: #e0e7ff; color: #3730a3; }
-
-    /* WER cell */
+    .model-link { color: var(--red); text-decoration: none; font-weight: 500; cursor: help; }
+    .model-link:hover { text-decoration: underline; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; background: #e0e7ff; color: #3730a3; }
     .wer-wrap { display: flex; align-items: center; gap: 8px; }
-    .wer-num { font-weight: 700; font-size: .95rem; min-width: 52px; }
+    .wer-num { font-weight: 700; font-size: 0.95rem; min-width: 52px; }
     .good { color: var(--good); }
-    .ok   { color: var(--ok); }
+    .ok { color: var(--ok); }
     .poor { color: var(--poor); }
-    .bar  { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
     .bar-fill { height: 100%; border-radius: 3px; }
-
-    /* empty / loading */
     .empty { text-align: center; padding: 60px; color: var(--muted); }
     .empty h3 { font-size: 1rem; margin-bottom: 6px; }
+    .empty-copy { color: var(--muted); font-size: 0.88rem; margin-top: 6px; }
 
-    /* ── Footer ── */
-    footer { text-align: center; padding: 28px; color: var(--muted); font-size: .78rem; }
+    .hover-card {
+      position: fixed;
+      z-index: 40;
+      width: min(420px, calc(100vw - 24px));
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+      padding: 14px;
+      pointer-events: auto;
+    }
+    .hover-card.hidden { display: none; }
+    .hover-card h3 { font-size: 0.95rem; margin-bottom: 4px; }
+    .hover-card .meta { color: var(--muted); font-size: 0.78rem; margin-bottom: 10px; }
+    .hover-samples { display: grid; gap: 10px; max-height: 360px; overflow: auto; }
+    .sample-item { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: #fff; }
+    .sample-item .sample-audio { font-size: 0.76rem; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+    .sample-item .sample-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 8px; }
+    .sample-item .sample-text { font-size: 0.8rem; line-height: 1.45; color: var(--text); margin-top: 2px; }
+
+    .comparison-controls { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    .model-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .model-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 12px;
+      box-shadow: var(--shadow);
+      font-size: 0.82rem;
+    }
+    .model-pill input { accent-color: var(--red); }
+
+    .comparison-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .comparison-table { width: 100%; border-collapse: collapse; }
+    .comparison-table th,
+    .comparison-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .comparison-table thead th { background: var(--header); color: #fff; cursor: default; }
+    .comparison-table tr:hover td { background: #f8fafc; }
+    .audio-name { font-weight: 700; color: var(--text); font-size: 0.85rem; }
+    .gt-text { line-height: 1.5; font-size: 0.86rem; white-space: pre-wrap; }
+    .prediction-box { display: grid; gap: 8px; }
+    .prediction-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .diff-stats { display: flex; gap: 6px; flex-wrap: wrap; }
+    .stat-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #334155;
+      background: #e2e8f0;
+    }
+    .token-line { line-height: 1.7; font-size: 0.84rem; white-space: normal; }
+    .token.eq { color: var(--text); }
+    .token.sub { background: #fef3c7; color: #92400e; padding: 1px 5px; border-radius: 999px; }
+    .token.ins { background: var(--insert); color: #166534; padding: 1px 5px; border-radius: 999px; }
+    .token.del { background: var(--delete); color: #991b1b; padding: 1px 5px; border-radius: 999px; text-decoration: line-through; }
+    .prediction-empty { color: var(--muted); font-size: 0.82rem; }
+
+    footer { text-align: center; padding: 28px; color: var(--muted); font-size: 0.78rem; }
     footer a { color: var(--red); }
 
     @media (max-width: 640px) {
       td, th { padding: 10px 10px; }
       .controls { flex-direction: column; }
+      .comparison-table,
+      .comparison-table thead,
+      .comparison-table tbody,
+      .comparison-table th,
+      .comparison-table td,
+      .comparison-table tr { display: block; }
+      .comparison-table thead { display: none; }
+      .comparison-table td { border-bottom: 0; }
+      .comparison-table tr { border-bottom: 1px solid var(--border); padding: 8px 0; }
     }
   </style>
 </head>
 <body>
-
 <header>
   <span class="flag">🇩🇰</span>
   <div>
@@ -113,7 +227,6 @@
 </header>
 
 <main class="container">
-
   <div class="stats">
     <div class="stat"><div class="val" id="s-models">—</div><div class="lbl">Model</div></div>
     <div class="stat"><div class="val" id="s-datasets">—</div><div class="lbl">Dataset</div></div>
@@ -121,32 +234,59 @@
     <div class="stat"><div class="val" id="s-total">—</div><div class="lbl">Evaluation</div></div>
   </div>
 
-  <div class="controls">
-    <input id="q" type="search" placeholder="🔍  Search models…" />
-    <select id="ds-filter"><option value="">All datasets</option></select>
-    <select id="metric-filter"><option value="">All metrics</option></select>
+  <div class="tabs" role="tablist" aria-label="Leaderboard views">
+    <button class="tab active" data-view="leaderboard" type="button">Leaderboard</button>
+    <button class="tab" data-view="comparison" type="button">Comparison</button>
   </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th data-col="model_name">Model<i class="si"></i></th>
-          <th data-col="task">Task<i class="si"></i></th>
-          <th data-col="score" class="asc">SCORE %<i class="si"></i></th>
-          <th data-col="metric">Metric<i class="si"></i></th>
-          <th data-col="dataset">Dataset<i class="si"></i></th>
-          <th data-col="timestamp">Date<i class="si"></i></th>
-        </tr>
-      </thead>
-      <tbody id="tbody">
-        <tr><td colspan="7"><div class="empty"><h3>Loading…</h3></div></td></tr>
-      </tbody>
-    </table>
-  </div>
+  <section id="leaderboard-view" class="view">
+    <div class="controls">
+      <input id="q" type="search" placeholder="Search models…" />
+      <select id="ds-filter"><option value="">All datasets</option></select>
+      <select id="metric-filter"><option value="">All metrics</option></select>
+    </div>
+    <div class="hint">Hover a model name to inspect up to 10 example audio items.</div>
 
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th data-col="model_name">Model<i class="si"></i></th>
+            <th data-col="task">Task<i class="si"></i></th>
+            <th data-col="score" class="asc">SCORE %<i class="si"></i></th>
+            <th data-col="metric">Metric<i class="si"></i></th>
+            <th data-col="dataset">Dataset<i class="si"></i></th>
+            <th data-col="timestamp">Date<i class="si"></i></th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="7"><div class="empty"><h3>Loading…</h3></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="comparison-view" class="view hidden">
+    <div class="comparison-controls">
+      <div>
+        <div class="hint" style="margin-top:0">Select the models to compare. Only rows with sample data are shown.</div>
+        <div id="comparison-models" class="model-pills"></div>
+      </div>
+    </div>
+
+    <div class="comparison-wrap">
+      <table class="comparison-table">
+        <thead id="comparison-head"></thead>
+        <tbody id="comparison-body">
+          <tr><td><div class="empty"><h3>Loading…</h3></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 </main>
+
+<div id="hover-card" class="hover-card hidden" aria-hidden="true"></div>
 
 <footer>
   Maintained by
@@ -157,13 +297,133 @@
 </footer>
 
 <script>
-  /* ── state ── */
   let all = [];
   let metricRanges = {};
   let sortCol = "score";
-  let sortDir = "asc"; // asc = lowest WER first
+  let sortDir = "asc";
+  let activeView = "leaderboard";
+  let selectedComparisonModels = [];
+  let hoverHideTimer = null;
+  const hoverCard = document.getElementById("hover-card");
 
-  /* ── helpers ── */
+  function getRowKey(row) {
+    return [row.model_name ?? "", row.metric ?? "", row.dataset ?? ""].join("||");
+  }
+
+  function getSamples(row) {
+    if (Array.isArray(row.samples)) return row.samples;
+    if (Array.isArray(row.examples)) return row.examples;
+    return [];
+  }
+
+  function escapeHtml(text) {
+    return String(text ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function tokenize(text) {
+    return String(text ?? "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+  }
+
+  function buildDiff(referenceText, hypothesisText) {
+    const reference = tokenize(referenceText);
+    const hypothesis = tokenize(hypothesisText);
+    const rows = reference.length;
+    const cols = hypothesis.length;
+    const dp = Array.from({ length: rows + 1 }, () => Array(cols + 1).fill(0));
+    const back = Array.from({ length: rows + 1 }, () => Array(cols + 1).fill(null));
+
+    for (let row = 1; row <= rows; row += 1) {
+      dp[row][0] = row;
+      back[row][0] = "del";
+    }
+    for (let col = 1; col <= cols; col += 1) {
+      dp[0][col] = col;
+      back[0][col] = "ins";
+    }
+
+    for (let row = 1; row <= rows; row += 1) {
+      for (let col = 1; col <= cols; col += 1) {
+        if (reference[row - 1].toLowerCase() === hypothesis[col - 1].toLowerCase()) {
+          dp[row][col] = dp[row - 1][col - 1];
+          back[row][col] = "eq";
+          continue;
+        }
+
+        const substitution = dp[row - 1][col - 1] + 1;
+        const deletion = dp[row - 1][col] + 1;
+        const insertion = dp[row][col - 1] + 1;
+        const best = Math.min(substitution, deletion, insertion);
+        dp[row][col] = best;
+        if (best === substitution) {
+          back[row][col] = "sub";
+        } else if (best === deletion) {
+          back[row][col] = "del";
+        } else {
+          back[row][col] = "ins";
+        }
+      }
+    }
+
+    const ops = [];
+    let row = rows;
+    let col = cols;
+    const counts = { substitutions: 0, deletions: 0, insertions: 0 };
+
+    while (row > 0 || col > 0) {
+      const op = back[row]?.[col];
+      if (op === "eq") {
+        ops.unshift({ type: "eq", word: reference[row - 1] });
+        row -= 1;
+        col -= 1;
+        continue;
+      }
+      if (op === "sub") {
+        counts.substitutions += 1;
+        ops.unshift({ type: "sub", reference: reference[row - 1], hypothesis: hypothesis[col - 1] });
+        row -= 1;
+        col -= 1;
+        continue;
+      }
+      if (op === "del" || col === 0) {
+        counts.deletions += 1;
+        ops.unshift({ type: "del", word: reference[row - 1] });
+        row -= 1;
+        continue;
+      }
+      counts.insertions += 1;
+      ops.unshift({ type: "ins", word: hypothesis[col - 1] });
+      col -= 1;
+    }
+
+    return { ops, counts };
+  }
+
+  function renderDiff(referenceText, hypothesisText) {
+    const diff = buildDiff(referenceText, hypothesisText);
+    const html = diff.ops.map(op => {
+      if (op.type === "eq") {
+        return `<span class="token eq">${escapeHtml(op.word)}</span>`;
+      }
+      if (op.type === "sub") {
+        return `<span class="token sub" title="substitution">${escapeHtml(op.reference)} → ${escapeHtml(op.hypothesis)}</span>`;
+      }
+      if (op.type === "ins") {
+        return `<span class="token ins" title="insertion">+${escapeHtml(op.word)}</span>`;
+      }
+      return `<span class="token del" title="deletion">-${escapeHtml(op.word)}</span>`;
+    }).join(" ");
+
+    return { html, counts: diff.counts };
+  }
+
   function buildMetricRanges(data) {
     const byMetric = {};
     data.forEach(r => {
@@ -184,7 +444,7 @@
     if (!range) return 0;
     const span = range.max - range.min;
     if (span <= 0) return 0;
-    return (s - range.min) / span; // lower is better
+    return (s - range.min) / span;
   }
 
   function metricClass(metric, score) {
@@ -204,7 +464,175 @@
     return i + 1;
   }
 
-  /* ── render ── */
+  function getHoverCardContent(row) {
+    const samples = getSamples(row).slice(0, 10);
+    if (!samples.length) {
+      return `
+        <h3>${escapeHtml(row.model_name)}</h3>
+        <div class="meta">No example samples are stored in this row yet.</div>
+      `;
+    }
+
+    return `
+      <h3>${escapeHtml(row.model_name)}</h3>
+      <div class="meta">${samples.length} stored sample${samples.length === 1 ? "" : "s"}</div>
+      <div class="hover-samples">
+        ${samples.map(sample => `
+          <div class="sample-item">
+            <div class="sample-audio">${escapeHtml(sample.audio_name ?? `sample_${sample.sample_index ?? "?"}`)}</div>
+            <div class="sample-label">Ground truth</div>
+            <div class="sample-text">${escapeHtml(sample.ground_truth ?? sample.input_text_raw ?? "")}</div>
+            <div class="sample-label">Output</div>
+            <div class="sample-text">${escapeHtml(sample.prediction ?? sample.output_text ?? sample.prediction_text_raw ?? "")}</div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function showHoverCard(row, target) {
+    hoverCard.innerHTML = getHoverCardContent(row);
+    hoverCard.classList.remove("hidden");
+    hoverCard.setAttribute("aria-hidden", "false");
+
+    const bounds = target.getBoundingClientRect();
+    const left = Math.min(bounds.right + 12, window.innerWidth - 24);
+    const top = Math.max(12, Math.min(bounds.top, window.innerHeight - 20));
+    hoverCard.style.top = `${top}px`;
+    hoverCard.style.left = `${left}px`;
+  }
+
+  function hideHoverCard(delay = 0) {
+    window.clearTimeout(hoverHideTimer);
+    hoverHideTimer = window.setTimeout(() => {
+      hoverCard.classList.add("hidden");
+      hoverCard.setAttribute("aria-hidden", "true");
+    }, delay);
+  }
+
+  function getComparisonModels() {
+    const samplesByModel = new Map();
+    all.forEach(row => {
+      const samples = getSamples(row);
+      if (!samples.length) return;
+      if (!samplesByModel.has(row.model_name)) {
+        samplesByModel.set(row.model_name, row);
+      }
+    });
+    return [...samplesByModel.values()];
+  }
+
+  function populateComparisonControls() {
+    const container = document.getElementById("comparison-models");
+    const rowsWithSamples = getComparisonModels();
+    if (!rowsWithSamples.length) {
+      container.innerHTML = `<div class="empty-copy">No sample data has been stored yet.</div>`;
+      selectedComparisonModels = [];
+      return;
+    }
+
+    if (!selectedComparisonModels.length) {
+      selectedComparisonModels = rowsWithSamples.slice(0, 2).map(row => row.model_name);
+    }
+
+    container.innerHTML = rowsWithSamples.map(row => {
+      const checked = selectedComparisonModels.includes(row.model_name) ? "checked" : "";
+      return `
+        <label class="model-pill">
+          <input type="checkbox" value="${escapeHtml(row.model_name)}" ${checked} />
+          <span>${escapeHtml(row.model_name)}</span>
+        </label>
+      `;
+    }).join("");
+
+    container.querySelectorAll('input[type="checkbox"]').forEach(input => {
+      input.addEventListener("change", () => {
+        selectedComparisonModels = [...container.querySelectorAll('input[type="checkbox"]:checked')].map(el => el.value);
+        renderComparison();
+      });
+    });
+  }
+
+  function buildComparisonRows() {
+    const selectedRows = all.filter(row => selectedComparisonModels.includes(row.model_name) && getSamples(row).length);
+    const byAudio = new Map();
+
+    selectedRows.forEach(row => {
+      getSamples(row).forEach(sample => {
+        const audioName = sample.audio_name ?? `sample_${sample.sample_index ?? "?"}`;
+        if (!byAudio.has(audioName)) {
+          byAudio.set(audioName, {
+            audio_name: audioName,
+            ground_truth: sample.ground_truth ?? sample.input_text_raw ?? "",
+            models: {},
+          });
+        }
+        const entry = byAudio.get(audioName);
+        if (!entry.ground_truth) {
+          entry.ground_truth = sample.ground_truth ?? sample.input_text_raw ?? "";
+        }
+        entry.models[row.model_name] = sample.prediction ?? sample.output_text ?? sample.prediction_text_raw ?? "";
+      });
+    });
+
+    return [...byAudio.values()].sort((a, b) => a.audio_name.localeCompare(b.audio_name));
+  }
+
+  function renderComparison() {
+    const body = document.getElementById("comparison-body");
+    const head = document.getElementById("comparison-head");
+    if (!selectedComparisonModels.length) {
+      head.innerHTML = "";
+      body.innerHTML = `<tr><td><div class="empty"><h3>Select at least one model</h3><p>Use the checkboxes above to compare sample outputs.</p></div></td></tr>`;
+      return;
+    }
+
+    const rows = buildComparisonRows();
+    if (!rows.length) {
+      head.innerHTML = "";
+      body.innerHTML = `<tr><td><div class="empty"><h3>No sample overlap</h3><p>Add matching sample data to two or more models to compare them here.</p></div></td></tr>`;
+      return;
+    }
+
+    head.innerHTML = `
+      <tr>
+        <th>Audio</th>
+        <th>Ground truth</th>
+        ${selectedComparisonModels.map(model => `<th>${escapeHtml(model)}</th>`).join("")}
+      </tr>
+    `;
+
+    body.innerHTML = rows.slice(0, 10).map(row => {
+      return `
+        <tr>
+          <td><div class="audio-name">${escapeHtml(row.audio_name)}</div></td>
+          <td><div class="gt-text">${escapeHtml(row.ground_truth)}</div></td>
+          ${selectedComparisonModels.map(model => {
+            const prediction = row.models[model];
+            if (!prediction) {
+              return `<td><div class="prediction-empty">No output</div></td>`;
+            }
+            const diff = renderDiff(row.ground_truth, prediction);
+            return `
+              <td>
+                <div class="prediction-box">
+                  <div class="prediction-top">
+                    <div class="diff-stats">
+                      <span class="stat-chip">S ${diff.counts.substitutions}</span>
+                      <span class="stat-chip">D ${diff.counts.deletions}</span>
+                      <span class="stat-chip">I ${diff.counts.insertions}</span>
+                    </div>
+                  </div>
+                  <div class="token-line">${diff.html}</div>
+                </div>
+              </td>
+            `;
+          }).join("")}
+        </tr>
+      `;
+    }).join("");
+  }
+
   function render(rows) {
     const tbody = document.getElementById("tbody");
     if (!rows.length) {
@@ -228,10 +656,11 @@
       ) ? `https://huggingface.co/${row.model_name}` : null;
       const url = row.model_url ?? fallbackHfUrl;
       const barW = Math.min(row.score, 100).toFixed(1);
-      const cls  = metricClass(row.metric, row.score);
+      const cls = metricClass(row.metric, row.score);
+      const rowKey = getRowKey(row);
       const modelCell = url
-        ? `<a href="${url}" target="_blank">${row.model_name}</a>`
-        : `<span>${row.model_name}</span>`;
+        ? `<a href="${url}" target="_blank" class="model-link" data-row-key="${escapeHtml(rowKey)}">${row.model_name}</a>`
+        : `<span class="model-link" data-row-key="${escapeHtml(rowKey)}">${row.model_name}</span>`;
       return `
         <tr>
           <td class="rank">${rank(i)}</td>
@@ -250,18 +679,16 @@
     }).join("");
   }
 
-  /* ── stats ── */
   function updateStats(data) {
-    document.getElementById("s-models").textContent   = new Set(data.map(r => r.model_name)).size || "—";
-    document.getElementById("s-datasets").textContent = new Set(data.map(r => r.dataset)).size   || "—";
-    document.getElementById("s-best").textContent     = data.length ? Math.min(...data.map(r => r.score)).toFixed(1) + "%" : "—";
-    document.getElementById("s-total").textContent    = data.length || "—";
+    document.getElementById("s-models").textContent = new Set(data.map(r => r.model_name)).size || "—";
+    document.getElementById("s-datasets").textContent = new Set(data.map(r => r.dataset)).size || "—";
+    document.getElementById("s-best").textContent = data.length ? Math.min(...data.map(r => r.score)).toFixed(1) + "%" : "—";
+    document.getElementById("s-total").textContent = data.length || "—";
   }
 
-  /* ── filter ── */
   function applyFilters() {
-    const q      = document.getElementById("q").value.toLowerCase();
-    const ds     = document.getElementById("ds-filter").value;
+    const q = document.getElementById("q").value.toLowerCase();
+    const ds = document.getElementById("ds-filter").value;
     const metric = document.getElementById("metric-filter").value;
     render(all.filter(r =>
       r.model_name.toLowerCase().includes(q) &&
@@ -270,7 +697,19 @@
     ));
   }
 
-  /* ── sort headers ── */
+  function setView(view) {
+    activeView = view;
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.classList.toggle("active", tab.dataset.view === view);
+    });
+    document.getElementById("leaderboard-view").classList.toggle("hidden", view !== "leaderboard");
+    document.getElementById("comparison-view").classList.toggle("hidden", view !== "comparison");
+    if (view === "comparison") {
+      populateComparisonControls();
+      renderComparison();
+    }
+  }
+
   document.querySelectorAll("thead th[data-col]").forEach(th => {
     th.addEventListener("click", () => {
       const col = th.dataset.col;
@@ -286,11 +725,19 @@
     });
   });
 
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => setView(tab.dataset.view));
+  });
+
   document.getElementById("q").addEventListener("input", applyFilters);
   document.getElementById("ds-filter").addEventListener("change", applyFilters);
   document.getElementById("metric-filter").addEventListener("change", applyFilters);
 
-  /* ── load data ── */
+  hoverCard.addEventListener("mouseenter", () => {
+    window.clearTimeout(hoverHideTimer);
+  });
+  hoverCard.addEventListener("mouseleave", () => hideHoverCard(80));
+
   fetch("leaderboard.json")
     .then(r => r.json())
     .then(data => {
@@ -300,21 +747,37 @@
       const dsSel = document.getElementById("ds-filter");
       const metricSel = document.getElementById("metric-filter");
       [...new Set(data.map(r => r.dataset))].sort().forEach(ds => {
-        const o = document.createElement("option");
-        o.value = o.textContent = ds;
-        dsSel.appendChild(o);
+        const option = document.createElement("option");
+        option.value = option.textContent = ds;
+        dsSel.appendChild(option);
       });
       [...new Set(data.map(r => r.metric))].sort().forEach(metric => {
-        const o = document.createElement("option");
-        o.value = o.textContent = metric;
-        metricSel.appendChild(o);
+        const option = document.createElement("option");
+        option.value = option.textContent = metric;
+        metricSel.appendChild(option);
       });
       applyFilters();
+      populateComparisonControls();
+      renderComparison();
+
+      document.getElementById("tbody").addEventListener("mouseover", event => {
+        const target = event.target.closest("[data-row-key]");
+        if (!target) return;
+        const row = all.find(entry => getRowKey(entry) === target.dataset.rowKey);
+        if (!row) return;
+        showHoverCard(row, target);
+      });
+      document.getElementById("tbody").addEventListener("mouseout", event => {
+        if (event.relatedTarget && hoverCard.contains(event.relatedTarget)) return;
+        hideHoverCard(120);
+      });
+      document.addEventListener("scroll", () => hideHoverCard(0), true);
     })
     .catch(() => {
       document.getElementById("tbody").innerHTML =
         `<tr><td colspan="7"><div class="empty"><h3>No evaluations yet</h3><p>Run <code>python -m danish_speech.run --model &lt;model-id&gt;</code> to populate the leaderboard.</p></div></td></tr>`;
       updateStats([]);
+      populateComparisonControls();
     });
 </script>
 </body>

@@ -84,6 +84,7 @@ def update_leaderboard(
     }
 
     if existing_idx is not None:
+        existing_entry = entries[existing_idx]
         old_score = entries[existing_idx]["score"]
         logger.info(
             "Updating %r on %r: %.2f%% → %.2f%%",
@@ -92,7 +93,8 @@ def update_leaderboard(
             old_score,
             score,
         )
-        entries[existing_idx] = new_entry
+        existing_entry.update(new_entry)
+        entries[existing_idx] = existing_entry
     else:
         logger.info("Adding %r on %r: %.2f%%", model_name, dataset, score)
         entries.append(new_entry)
