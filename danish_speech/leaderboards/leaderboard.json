@@ -8,52 +8,17 @@
       {
         "audio_name": "sample_000.wav",
         "ground_truth": "jeg hedder trine og jeg er subjekt b",
-        "prediction": "jeg hedder trænne og jeg så gæt bæt."
+        "prediction": "jeg hedder trænne og jeg så gæt bæt"
       },
       {
         "audio_name": "sample_001.wav",
         "ground_truth": "hvad så hvad vil du snakke om",
-        "prediction": "og så har vi vores nække op."
-      },
-      {
-        "audio_name": "sample_002.wav",
-        "ground_truth": "i perioder ja jeg",
-        "prediction": "i periodet, ja. ja, ja."
-      },
-      {
-        "audio_name": "sample_003.wav",
-        "ground_truth": "du havde aldrig været på det her bibliotek så vidt jeg havde forstået",
-        "prediction": "du har aldrig været på det her, at vi plet er ikke så lidt ny forstål. nej."
-      },
-      {
-        "audio_name": "sample_004.wav",
-        "ground_truth": "i din egen by",
-        "prediction": "Ikke 90."
-      },
-      {
-        "audio_name": "sample_005.wav",
-        "ground_truth": "er det et mindre barn",
-        "prediction": "thank you."
-      },
-      {
-        "audio_name": "sample_006.wav",
-        "ground_truth": "men jeg synes jo også at nu er det det her bibliotek jeg primært bruger og dels er der selvfølgelig bøgerne og børnebiblioteket med legetøj og sådan noget men men der er jo også alle de her hvad skal vi sige kulturelle tilbud med børneforestillinger og sådan noget og dem brugte jeg især da mine børn var yngre",
-        "prediction": "men jeg synes jo også, at nu det det her bliver til, at jeg prøve at prøve at bruge, og det er det, så er der selvfølgelig bøgerne, og børne bliver til at gøre med lejt, så jeg er sådan noget, men det er jo også, at det er, at vi skal se kulturelle et til på, med børne forstælderinger, og den brugt jeg i særte min børn var yngre."
-      },
-      {
-        "audio_name": "sample_007.wav",
-        "ground_truth": "altså da de var i de i de første to til seks år ik",
-        "prediction": "det var i de første, som toter 6 år væk."
-      },
-      {
-        "audio_name": "sample_008.wav",
-        "ground_truth": "jamen her har de flere af sådan noget børneforestillinger der hænger en plakat bag ved mig med den glade løve tror jeg her hen",
-        "prediction": "jamen her har de flere as nede børne forstillering og skrike. der kan hægge en plakate baby, man mætten glæder løvet, tror jeg. ja, det er rigtig."
+        "prediction": "og så har vi vores nække op"
       },
       {
         "audio_name": "sample_009.wav",
         "ground_truth": "som kommer senere og fordi",
-        "prediction": "jeg er sammenkort mig at sænne og hvis måtte tænne."
+        "prediction": "jeg er sammenkort mig at sænne og hvis måtte tænne"
       }
     ],
     "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
@@ -88,12 +53,12 @@
       {
         "audio_name": "sample_000.wav",
         "ground_truth": "jeg hedder trine og jeg er subjekt b",
-        "prediction": "jeg hedder trine og jeg er subject b."
+        "prediction": "jeg hedder trine og jeg er subject b"
       },
       {
         "audio_name": "sample_001.wav",
         "ground_truth": "hvad så hvad vil du snakke om",
-        "prediction": "så er der bare at snakke af."
+        "prediction": "så er der bare at snakke af"
       }
     ],
     "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
@@ -203,5 +168,42 @@
     "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
     "dataset": "CoRalv3[conversation]",
     "timestamp": "2026-06-22"
+  },
+  {
+    "model_name": "Qwen/Qwen3-ASR-1.7B",
+    "model_url": "https://huggingface.co/Qwen/Qwen3-ASR-1.7B",
+    "task": "ASR",
+    "metric": "WER",
+    "score": 39.74,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-24",
+    "samples": [
+      {
+        "audio_name": "sample_000.wav",
+        "ground_truth": "jeg hedder trine og jeg er subjekt b",
+        "prediction": "jeg hedder trine og jeg er subjekt b"
+      },
+      {
+        "audio_name": "sample_001.wav",
+        "ground_truth": "hvad så hvad vil du snakke om",
+        "prediction": "man savner at snakke"
+      },
+      {
+        "audio_name": "sample_009.wav",
+        "ground_truth": "som kommer senere og fordi",
+        "prediction": "som kommer senere og"
+      }
+    ]
+  },
+  {
+    "model_name": "Qwen/Qwen3-ASR-1.7B",
+    "model_url": "https://huggingface.co/Qwen/Qwen3-ASR-1.7B",
+    "task": "ASR",
+    "metric": "CER",
+    "score": 23.94,
+    "dataset_link": "https://huggingface.co/datasets/CoRal-project/coral-v3/viewer/conversation/test",
+    "dataset": "CoRalv3[conversation]",
+    "timestamp": "2026-06-24"
   }
 ]
