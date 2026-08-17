@@ -12,7 +12,12 @@ import soundfile as sf
 import torch
 from datasets import Dataset
 from tqdm.auto import tqdm
-from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+from transformers import (
+    AutoModelForSpeechSeq2Seq,
+    AutoProcessor,
+    Wav2Vec2ForCTC,
+    Wav2Vec2Processor,
+)
 from transformers.pipelines import pipeline
 from transformers.pipelines.automatic_speech_recognition import (
     AutomaticSpeechRecognitionPipeline,
@@ -173,38 +178,67 @@ def evaluate_asr(  # NOSONAR
         )
     else:
         logger.info("Loading ASR model %r...", model_id)
-        try:
-            transcriber = load_asr_pipeline(
-                model_id=model_id,
-                no_lm=no_lm,
-                trust_remote_code=trust_remote_code,
-                device=device,
-            )
-            predictions, successful_indices, failed_errors = _transcribe_hf(
-                transcriber=transcriber,
+
+        # Detect models with a native .transcribe() API (e.g. hviske/cohere_asr)
+        # and use it directly, bypassing the transformers pipeline.
+        _native_model = None
+        with transformers_output_ignored():
+            try:
+                _native_model = AutoModelForSpeechSeq2Seq.from_pretrained(
+                    model_id, trust_remote_code=trust_remote_code
+                )
+            except Exception:
+                pass
+
+        if _native_model is not None and callable(
+            getattr(_native_model, "transcribe", None)
+        ):
+            with transformers_output_ignored():
+                _native_processor = AutoProcessor.from_pretrained(
+                    model_id, trust_remote_code=trust_remote_code
+                )
+            predictions, successful_indices, failed_errors = _transcribe_native(
+                model=_native_model,
+                processor=_native_processor,
                 dataset=dataset,
                 audio_column=audio_column,
                 batch_size=batch_size,
-                no_lm=no_lm,
-                enforce_da=enforce_da,
-            )
-        except ValueError as exc:
-            # Qwen3-ASR uses a custom model type not supported by the generic
-            # transformers ASR pipeline path used by this backend.
-            if "qwen3_asr" not in str(exc).lower():
-                raise
-
-            logger.warning(
-                "Detected Qwen3-ASR checkpoint with --backend huggingface; "
-                "falling back to --backend qwen_asr."
-            )
-            predictions, successful_indices, failed_errors = _transcribe_qwen_asr(
-                model_id=model_id,
-                dataset=dataset,
-                audio_column=audio_column,
                 enforce_da=enforce_da,
                 device=device,
             )
+        else:
+            try:
+                transcriber = load_asr_pipeline(
+                    model_id=model_id,
+                    no_lm=no_lm,
+                    trust_remote_code=trust_remote_code,
+                    device=device,
+                )
+                predictions, successful_indices, failed_errors = _transcribe_hf(
+                    transcriber=transcriber,
+                    dataset=dataset,
+                    audio_column=audio_column,
+                    batch_size=batch_size,
+                    no_lm=no_lm,
+                    enforce_da=enforce_da,
+                )
+            except ValueError as exc:
+                # Qwen3-ASR uses a custom model type not supported by the generic
+                # transformers ASR pipeline path used by this backend.
+                if "qwen3_asr" not in str(exc).lower():
+                    raise
+
+                logger.warning(
+                    "Detected Qwen3-ASR checkpoint with --backend huggingface; "
+                    "falling back to --backend qwen_asr."
+                )
+                predictions, successful_indices, failed_errors = _transcribe_qwen_asr(
+                    model_id=model_id,
+                    dataset=dataset,
+                    audio_column=audio_column,
+                    enforce_da=enforce_da,
+                    device=device,
+                )
 
     if not successful_indices:
         raise ValueError(
@@ -255,6 +289,70 @@ def evaluate_asr(  # NOSONAR
     }
 
 
+# ── Native .transcribe() backend (e.g. hviske / cohere_asr) ──────────────────
+
+def _transcribe_native(
+    model: AutoModelForSpeechSeq2Seq,
+    processor: AutoProcessor,
+    dataset: Dataset,
+    audio_column: str,
+    batch_size: int,
+    enforce_da: bool,
+    device: Device,
+) -> tuple[list[str], list[int], dict[int, str]]:
+    """Transcribe using a model's native ``.transcribe()`` method.
+
+    Args:
+        model: Loaded model exposing ``.transcribe()``.
+        processor: Matching processor/feature-extractor.
+        dataset: Pre-loaded evaluation dataset.
+        audio_column: Name of the audio column.
+        batch_size: Number of samples per call.
+        enforce_da: When ``True``, pass ``language="da"`` to ``.transcribe()``.
+        device: Target device.
+
+    Returns:
+        Tuple of transcription strings, their dataset indices, and errors.
+    """
+    resolved_device = _resolve_local_device(device)
+    model = model.to(resolved_device).eval()
+
+    language = "da" if enforce_da else None
+    predictions: list[str] = []
+    successful_indices: list[int] = []
+    failed_errors: dict[int, str] = {}
+
+    indices = list(range(len(dataset)))
+    with tqdm(total=len(dataset), desc="Transcribing") as pbar:
+        for start in range(0, len(indices), batch_size):
+            batch_idx = indices[start : start + batch_size]
+            audio_arrays = []
+            sample_rates = []
+            for idx in batch_idx:
+                audio = dataset[idx][audio_column]
+                audio_arrays.append(audio["array"])
+                sample_rates.append(audio["sampling_rate"])
+            try:
+                kwargs: dict = dict(
+                    processor=processor,
+                    audio_arrays=audio_arrays,
+                    sample_rates=sample_rates,
+                )
+                if language is not None:
+                    kwargs["language"] = language
+                texts = model.transcribe(**kwargs)
+                for idx, text in zip(batch_idx, texts):
+                    predictions.append(text)
+                    successful_indices.append(idx)
+            except Exception as exc:
+                logger.warning(TRANSCRIPTION_FAILED_LOG + " (%s)", batch_idx[0], exc)
+                for idx in batch_idx:
+                    failed_errors[idx] = str(exc)
+            pbar.update(len(batch_idx))
+
+    return predictions, successful_indices, failed_errors
+
+
 # ── HuggingFace backend ────────────────────────────────────────────────────────
 
 def _transcribe_hf(
@@ -300,16 +398,36 @@ def _transcribe_hf(
         tqdm(total=len(dataset), desc="Transcribing") as pbar,
         transformers_output_ignored(),
     ):
-        for idx, out in enumerate(
-            transcriber(
-            KeyDataset(dataset=dataset, key=audio_column),  # type: ignore[arg-type]
-            batch_size=batch_size,
-            generate_kwargs=gen_kwargs,
+        try:
+            for idx, out in enumerate(
+                transcriber(
+                    KeyDataset(dataset=dataset, key=audio_column),  # type: ignore[arg-type]
+                    batch_size=batch_size,
+                    generate_kwargs=gen_kwargs,
+                )
+            ):
+                predictions.append(out["text"])
+                successful_indices.append(idx)
+                pbar.update()
+        except RuntimeError as exc:
+            if "expanded size" not in str(exc) or batch_size == 1:
+                raise
+            logger.warning(
+                "Batch padding failed (%s); retrying with batch_size=1.", exc
             )
-        ):
-            predictions.append(out["text"])
-            successful_indices.append(idx)
-            pbar.update()
+            predictions.clear()
+            successful_indices.clear()
+            pbar.reset()
+            for idx, out in enumerate(
+                transcriber(
+                    KeyDataset(dataset=dataset, key=audio_column),  # type: ignore[arg-type]
+                    batch_size=1,
+                    generate_kwargs=gen_kwargs,
+                )
+            ):
+                predictions.append(out["text"])
+                successful_indices.append(idx)
+                pbar.update()
     return predictions, successful_indices, {}
 
 
@@ -364,6 +482,15 @@ def load_asr_pipeline(
             )
 
     assert isinstance(transcriber, AutomaticSpeechRecognitionPipeline)
+
+    # Custom encoder-decoder models (e.g. cohere_asr/hviske) are not in
+    # MODEL_FOR_SPEECH_SEQ_2_SEQ_MAPPING_NAMES, so the pipeline mis-classifies
+    # them as "ctc" and skips generate(). Force seq2seq mode via is_encoder_decoder.
+    if transcriber.type == "ctc" and getattr(
+        transcriber.model.config, "is_encoder_decoder", False
+    ):
+        transcriber.type = "seq2seq"
+
     return transcriber
 
 
